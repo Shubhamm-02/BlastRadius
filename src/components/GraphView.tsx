@@ -1,25 +1,30 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
 }) as unknown as (props: Record<string, unknown>) => JSX.Element;
 
 type GNode = { id: string; name: string; file: string };
-type GLink = { source: string; target: string };
+type GLink = { source: string | GNode; target: string | GNode };
 type GraphData = { nodes: GNode[]; links: GLink[] };
-type Stats = {
-  files: number;
-  functions: number;
-  imports: number;
-  calls: number;
-};
+type Stats = { files: number; functions: number; imports: number; calls: number };
 
 const COLOR_SELECTED = "#ef4444";
 const COLOR_AFFECTED = "#f59e0b";
 const COLOR_IDLE = "#64748b";
+
+const idOf = (x: string | GNode): string =>
+  typeof x === "object" && x ? x.id : (x as string);
 
 export default function GraphView() {
   const [repoInput, setRepoInput] = useState("");
@@ -29,7 +34,10 @@ export default function GraphView() {
   const [ingesting, setIngesting] = useState(false);
   const [ingestError, setIngestError] = useState("");
 
-  const [data, setData] = useState<GraphData>({ nodes: [], links: [] });
+  const [full, setFull] = useState<GraphData>({ nodes: [], links: [] });
+  const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"focus" | "full">("focus");
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [affectedIds, setAffectedIds] = useState<Set<string>>(new Set());
   const [explanation, setExplanation] = useState("");
@@ -37,26 +45,29 @@ export default function GraphView() {
 
   const [dims, setDims] = useState({ width: 800, height: 600 });
   const graphWrapRef = useRef<HTMLDivElement>(null);
+  const fgRef = useRef<{ zoomToFit?: (ms?: number, px?: number) => void } | null>(null);
+  const shouldFit = useRef(false);
 
-  // Allow deep-linking / CLI: /?projectId=xxx
+  // Deep-link / CLI support: /?projectId=xxx
   useEffect(() => {
     const pid = new URLSearchParams(window.location.search).get("projectId");
     if (pid) setProjectId(pid);
   }, []);
 
-  // Load the graph whenever the active project changes.
+  // Load full graph for the active project (used for search + subgraph).
   useEffect(() => {
     if (!projectId) {
-      setData({ nodes: [], links: [] });
+      setFull({ nodes: [], links: [] });
       return;
     }
     setSelectedId(null);
     setAffectedIds(new Set());
     setExplanation("");
+    setQuery("");
     fetch(`/api/graph?projectId=${encodeURIComponent(projectId)}`)
       .then((r) => r.json())
-      .then((d) => setData(d.error ? { nodes: [], links: [] } : (d as GraphData)))
-      .catch(() => setData({ nodes: [], links: [] }));
+      .then((d) => setFull(d.error ? { nodes: [], links: [] } : (d as GraphData)))
+      .catch(() => setFull({ nodes: [], links: [] }));
   }, [projectId]);
 
   useEffect(() => {
@@ -97,15 +108,16 @@ export default function GraphView() {
       .finally(() => setIngesting(false));
   }, [repoInput, ingesting]);
 
-  const handleNodeClick = useCallback(
-    (node: GNode) => {
+  const selectFunction = useCallback(
+    (id: string) => {
       if (!projectId) return;
-      setSelectedId(node.id);
+      setSelectedId(id);
       setExplanation("");
       setAffectedIds(new Set());
       setLoadingImpact(true);
+      shouldFit.current = true;
       fetch(
-        `/api/impact?projectId=${encodeURIComponent(projectId)}&id=${encodeURIComponent(node.id)}`,
+        `/api/impact?projectId=${encodeURIComponent(projectId)}&id=${encodeURIComponent(id)}`,
       )
         .then((r) => r.json())
         .then((d) => {
@@ -118,22 +130,49 @@ export default function GraphView() {
     [projectId],
   );
 
-  const nodeColor = useCallback(
-    (node: GNode) => {
-      if (node.id === selectedId) return COLOR_SELECTED;
-      if (affectedIds.has(node.id)) return COLOR_AFFECTED;
+  // Search matches (capped so huge repos stay responsive).
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const arr = q
+      ? full.nodes.filter(
+          (n) =>
+            n.name.toLowerCase().includes(q) ||
+            n.file.toLowerCase().includes(q),
+        )
+      : full.nodes;
+    return { total: arr.length, shown: arr.slice(0, 100) };
+  }, [query, full]);
+
+  // What actually gets drawn: the blast-radius subgraph in focus mode,
+  // the whole graph in full mode.
+  const displayData: GraphData = useMemo(() => {
+    if (viewMode === "full") return full;
+    if (!selectedId) return { nodes: [], links: [] };
+    const keep = new Set<string>([selectedId, ...affectedIds]);
+    const nodes = full.nodes
+      .filter((n) => keep.has(n.id))
+      .map((n) => ({ id: n.id, name: n.name, file: n.file }));
+    const links = full.links
+      .filter((l) => keep.has(idOf(l.source)) && keep.has(idOf(l.target)))
+      .map((l) => ({ source: idOf(l.source), target: idOf(l.target) }));
+    return { nodes, links };
+  }, [viewMode, selectedId, affectedIds, full]);
+
+  const colorFor = useCallback(
+    (id: string) => {
+      if (id === selectedId) return COLOR_SELECTED;
+      if (affectedIds.has(id)) return COLOR_AFFECTED;
       return COLOR_IDLE;
     },
     [selectedId, affectedIds],
   );
 
-  const selectedNode = data.nodes.find((n) => n.id === selectedId);
+  const selectedNode = full.nodes.find((n) => n.id === selectedId);
+  const bigGraph = full.nodes.length > 1500;
 
   return (
-    <main
-      style={{ display: "flex", flexDirection: "column", height: "100%" }}
-    >
-      {/* Top bar: repo input */}
+    <main style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {/* Top bar */}
       <header
         style={{
           display: "flex",
@@ -152,31 +191,9 @@ export default function GraphView() {
           onChange={(e) => setRepoInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && analyze()}
           placeholder="Public GitHub repo — e.g. facebook/react or a github.com URL"
-          style={{
-            flex: 1,
-            maxWidth: 560,
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #334155",
-            background: "#0f172a",
-            color: "#e2e8f0",
-            fontSize: 14,
-          }}
+          style={inputStyle(560)}
         />
-        <button
-          onClick={analyze}
-          disabled={ingesting}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 8,
-            border: "none",
-            background: ingesting ? "#475569" : "#f59e0b",
-            color: "#0b1220",
-            fontWeight: 600,
-            fontSize: 14,
-            cursor: ingesting ? "default" : "pointer",
-          }}
-        >
+        <button onClick={analyze} disabled={ingesting} style={btnStyle(ingesting)}>
           {ingesting ? "Analyzing…" : "Analyze"}
         </button>
         {stats && (
@@ -189,67 +206,232 @@ export default function GraphView() {
         )}
       </header>
 
-      {/* Body: graph + sidebar */}
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        {/* Left: searchable function picker */}
+        <aside
+          style={{
+            width: 300,
+            borderRight: "1px solid #1e293b",
+            display: "flex",
+            flexDirection: "column",
+            background: "#0b1220",
+          }}
+        >
+          <div style={{ padding: "14px 14px 8px" }}>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={`Search ${full.nodes.length} functions…`}
+              style={inputStyle()}
+            />
+          </div>
+          <div style={{ overflowY: "auto", flex: 1, padding: "0 6px 12px" }}>
+            {full.nodes.length === 0 ? (
+              <p style={{ fontSize: 12, color: "#64748b", padding: "0 8px" }}>
+                Analyze a repo to list its functions.
+              </p>
+            ) : (
+              <>
+                {matches.shown.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => selectFunction(n.id)}
+                    title={`${n.name} — ${n.file}`}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "6px 8px",
+                      marginBottom: 2,
+                      borderRadius: 6,
+                      border: "none",
+                      cursor: "pointer",
+                      background:
+                        n.id === selectedId ? "#1e293b" : "transparent",
+                      color: n.id === selectedId ? "#f87171" : "#cbd5e1",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {n.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#64748b",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {n.file}
+                    </div>
+                  </button>
+                ))}
+                {matches.total > matches.shown.length && (
+                  <p style={{ fontSize: 11, color: "#64748b", padding: "6px 8px" }}>
+                    Showing {matches.shown.length} of {matches.total} — refine
+                    your search.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </aside>
+
+        {/* Center: graph */}
         <div
           ref={graphWrapRef}
           style={{ flex: 1, position: "relative", overflow: "hidden" }}
         >
-          {data.nodes.length > 0 ? (
+          {displayData.nodes.length > 0 ? (
             <ForceGraph2D
-              graphData={data}
+              ref={fgRef}
+              graphData={displayData}
               width={dims.width}
               height={dims.height}
               backgroundColor="#0f172a"
               nodeId="id"
-              nodeRelSize={5}
-              nodeColor={nodeColor}
-              nodeLabel={(n: GNode) => `${n.name}  —  ${n.file}`}
               linkColor={() => "#334155"}
               linkDirectionalArrowLength={3}
               linkDirectionalArrowRelPos={1}
-              onNodeClick={handleNodeClick}
+              cooldownTicks={80}
+              onEngineStop={() => {
+                if (shouldFit.current) {
+                  fgRef.current?.zoomToFit?.(500, 60);
+                  shouldFit.current = false;
+                }
+              }}
+              onNodeClick={(n: GNode) => selectFunction(n.id)}
+              nodePointerAreaPaint={(
+                node: GNode & { x: number; y: number },
+                color: string,
+                ctx: CanvasRenderingContext2D,
+              ) => {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI);
+                ctx.fill();
+              }}
+              nodeCanvasObject={(
+                node: GNode & { x: number; y: number },
+                ctx: CanvasRenderingContext2D,
+                globalScale: number,
+              ) => {
+                const r = 4;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+                ctx.fillStyle = colorFor(node.id);
+                ctx.fill();
+                const highlight =
+                  node.id === selectedId || affectedIds.has(node.id);
+                // Label focused subgraph always; in full mode only highlights.
+                if (viewMode === "focus" || highlight) {
+                  const fontSize = Math.max(10 / globalScale, 2);
+                  ctx.font = `${fontSize}px sans-serif`;
+                  ctx.textAlign = "center";
+                  ctx.textBaseline = "top";
+                  ctx.fillStyle = highlight ? "#f1f5f9" : "#94a3b8";
+                  ctx.fillText(node.name, node.x, node.y + r + 1);
+                }
+              }}
             />
           ) : (
-            <EmptyState ingesting={ingesting} hasProject={!!projectId} />
+            <CenterHint
+              ingesting={ingesting}
+              hasProject={!!projectId}
+              hasSelection={!!selectedId}
+              viewMode={viewMode}
+            />
+          )}
+
+          {/* View toggle */}
+          {full.nodes.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 12,
+                display: "flex",
+                gap: 4,
+                background: "#0b1220cc",
+                borderRadius: 8,
+                padding: 4,
+              }}
+            >
+              {(["focus", "full"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    shouldFit.current = true;
+                    setViewMode(m);
+                  }}
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: "none",
+                    cursor: "pointer",
+                    background: viewMode === m ? "#f59e0b" : "transparent",
+                    color: viewMode === m ? "#0b1220" : "#cbd5e1",
+                  }}
+                >
+                  {m === "focus" ? "Blast radius" : "Full graph"}
+                </button>
+              ))}
+            </div>
+          )}
+          {viewMode === "full" && bigGraph && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 12,
+                left: 12,
+                fontSize: 11,
+                color: "#fbbf24",
+                background: "#0b1220cc",
+                padding: "4px 8px",
+                borderRadius: 6,
+              }}
+            >
+              Large graph ({full.nodes.length} nodes) — use search + Blast radius
+              view for clarity.
+            </div>
           )}
         </div>
 
+        {/* Right: details */}
         <aside
           style={{
-            width: 340,
+            width: 320,
             borderLeft: "1px solid #1e293b",
             padding: "20px 18px",
             overflowY: "auto",
             background: "#0b1220",
           }}
         >
-          <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 16px" }}>
-            Neo4j AuraDB · click any function to see its blast radius.
-          </p>
-
           <Legend />
-
           {selectedNode ? (
             <section style={{ marginTop: 20 }}>
               <div style={{ fontSize: 13, color: "#94a3b8" }}>Selected</div>
-              <div
-                style={{ fontSize: 15, fontWeight: 600, color: "#f87171" }}
-              >
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#f87171" }}>
                 {selectedNode.name}
               </div>
-              <div
-                style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}
-              >
+              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
                 {selectedNode.file}
               </div>
 
               <div style={{ fontSize: 13, color: "#94a3b8" }}>Blast radius</div>
               <div style={{ fontSize: 28, fontWeight: 700, color: "#fbbf24" }}>
                 {affectedIds.size}
-                <span
-                  style={{ fontSize: 13, color: "#94a3b8", fontWeight: 400 }}
-                >
+                <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 400 }}>
                   {" "}
                   function{affectedIds.size === 1 ? "" : "s"} affected
                 </span>
@@ -273,15 +455,40 @@ export default function GraphView() {
             </section>
           ) : (
             <p style={{ marginTop: 20, fontSize: 13, color: "#94a3b8" }}>
-              {data.nodes.length > 0
-                ? "Click a node to analyze the impact of changing it."
-                : "Analyze a repo to get started."}
+              Search a function on the left (or click a node) to see its blast
+              radius.
             </p>
           )}
         </aside>
       </div>
     </main>
   );
+}
+
+function inputStyle(maxWidth?: number): CSSProperties {
+  return {
+    width: "100%",
+    maxWidth,
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #334155",
+    background: "#0f172a",
+    color: "#e2e8f0",
+    fontSize: 14,
+  };
+}
+
+function btnStyle(disabled: boolean): CSSProperties {
+  return {
+    padding: "8px 16px",
+    borderRadius: 8,
+    border: "none",
+    background: disabled ? "#475569" : "#f59e0b",
+    color: "#0b1220",
+    fontWeight: 600,
+    fontSize: 14,
+    cursor: disabled ? "default" : "pointer",
+  };
 }
 
 function Legend() {
@@ -293,10 +500,7 @@ function Legend() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {rows.map(([c, label]) => (
-        <div
-          key={label}
-          style={{ display: "flex", alignItems: "center", gap: 8 }}
-        >
+        <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span
             style={{
               width: 12,
@@ -313,51 +517,38 @@ function Legend() {
   );
 }
 
-function EmptyState({
+function CenterHint({
   ingesting,
   hasProject,
+  hasSelection,
+  viewMode,
 }: {
   ingesting: boolean;
   hasProject: boolean;
+  hasSelection: boolean;
+  viewMode: "focus" | "full";
 }) {
+  let msg: string;
+  if (ingesting) msg = "Cloning & parsing the repo into AuraDB…";
+  else if (!hasProject) msg = "Paste a public GitHub repo above and hit Analyze.";
+  else if (viewMode === "focus" && !hasSelection)
+    msg = "Search or click a function to see its blast radius.";
+  else msg = "No functions to display.";
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         textAlign: "center",
         padding: 24,
         color: "#94a3b8",
+        fontSize: 14,
       }}
     >
-      {ingesting ? (
-        <div style={{ fontWeight: 600 }}>
-          Cloning & parsing the repo into AuraDB…
-        </div>
-      ) : hasProject ? (
-        <div>
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>
-            No functions found
-          </div>
-          <p style={{ fontSize: 13, maxWidth: 420 }}>
-            That project had no resolvable TS/JS functions. Try another repo.
-          </p>
-        </div>
-      ) : (
-        <div>
-          <div style={{ fontWeight: 600, marginBottom: 8, color: "#e2e8f0" }}>
-            Paste a public GitHub repo above and hit Analyze
-          </div>
-          <p style={{ fontSize: 13, maxWidth: 460 }}>
-            BlastRadius parses it into a Neo4j AuraDB call graph, then lights up
-            the blast radius of any function you click.
-          </p>
-        </div>
-      )}
+      <span style={{ maxWidth: 420 }}>{msg}</span>
     </div>
   );
 }
