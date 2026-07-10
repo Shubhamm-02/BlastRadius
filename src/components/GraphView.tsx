@@ -3,8 +3,6 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// react-force-graph touches `window`/canvas, so it must be client-only.
-// Typed as any to avoid friction with the library's prop types.
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
 }) as unknown as (props: Record<string, unknown>) => JSX.Element;
@@ -12,33 +10,55 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
 type GNode = { id: string; name: string; file: string };
 type GLink = { source: string; target: string };
 type GraphData = { nodes: GNode[]; links: GLink[] };
+type Stats = {
+  files: number;
+  functions: number;
+  imports: number;
+  calls: number;
+};
 
-const COLOR_SELECTED = "#ef4444"; // red — the function you clicked
-const COLOR_AFFECTED = "#f59e0b"; // amber — in the blast radius
-const COLOR_IDLE = "#64748b"; // slate — everything else
+const COLOR_SELECTED = "#ef4444";
+const COLOR_AFFECTED = "#f59e0b";
+const COLOR_IDLE = "#64748b";
 
 export default function GraphView() {
+  const [repoInput, setRepoInput] = useState("");
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [slug, setSlug] = useState("");
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [ingesting, setIngesting] = useState(false);
+  const [ingestError, setIngestError] = useState("");
+
   const [data, setData] = useState<GraphData>({ nodes: [], links: [] });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [affectedIds, setAffectedIds] = useState<Set<string>>(new Set());
   const [explanation, setExplanation] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loadingImpact, setLoadingImpact] = useState(false);
+
   const [dims, setDims] = useState({ width: 800, height: 600 });
   const graphWrapRef = useRef<HTMLDivElement>(null);
 
-  // Load the graph once.
+  // Allow deep-linking / CLI: /?projectId=xxx
   useEffect(() => {
-    fetch("/api/graph")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) setError(d.error);
-        else setData(d as GraphData);
-      })
-      .catch((e) => setError(String(e)));
+    const pid = new URLSearchParams(window.location.search).get("projectId");
+    if (pid) setProjectId(pid);
   }, []);
 
-  // Keep the canvas sized to its container.
+  // Load the graph whenever the active project changes.
+  useEffect(() => {
+    if (!projectId) {
+      setData({ nodes: [], links: [] });
+      return;
+    }
+    setSelectedId(null);
+    setAffectedIds(new Set());
+    setExplanation("");
+    fetch(`/api/graph?projectId=${encodeURIComponent(projectId)}`)
+      .then((r) => r.json())
+      .then((d) => setData(d.error ? { nodes: [], links: [] } : (d as GraphData)))
+      .catch(() => setData({ nodes: [], links: [] }));
+  }, [projectId]);
+
   useEffect(() => {
     function measure() {
       const el = graphWrapRef.current;
@@ -47,22 +67,56 @@ export default function GraphView() {
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, []);
+  }, [projectId]);
 
-  const handleNodeClick = useCallback((node: GNode) => {
-    setSelectedId(node.id);
-    setExplanation("");
-    setAffectedIds(new Set());
-    setLoading(true);
-    fetch(`/api/impact?id=${encodeURIComponent(node.id)}`)
+  const analyze = useCallback(() => {
+    const repo = repoInput.trim();
+    if (!repo || ingesting) return;
+    setIngesting(true);
+    setIngestError("");
+    setStats(null);
+    fetch("/api/ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo }),
+    })
       .then((r) => r.json())
       .then((d) => {
-        setAffectedIds(new Set<string>(d.affectedIds ?? []));
-        setExplanation(d.explanation ?? d.error ?? "");
+        if (d.error) {
+          setIngestError(d.error);
+          return;
+        }
+        setStats(d.stats as Stats);
+        setSlug(d.slug as string);
+        setProjectId(d.projectId as string);
+        const url = new URL(window.location.href);
+        url.searchParams.set("projectId", d.projectId as string);
+        window.history.replaceState(null, "", url.toString());
       })
-      .catch((e) => setExplanation("Error: " + String(e)))
-      .finally(() => setLoading(false));
-  }, []);
+      .catch((e) => setIngestError(String(e)))
+      .finally(() => setIngesting(false));
+  }, [repoInput, ingesting]);
+
+  const handleNodeClick = useCallback(
+    (node: GNode) => {
+      if (!projectId) return;
+      setSelectedId(node.id);
+      setExplanation("");
+      setAffectedIds(new Set());
+      setLoadingImpact(true);
+      fetch(
+        `/api/impact?projectId=${encodeURIComponent(projectId)}&id=${encodeURIComponent(node.id)}`,
+      )
+        .then((r) => r.json())
+        .then((d) => {
+          setAffectedIds(new Set<string>(d.affectedIds ?? []));
+          setExplanation(d.explanation ?? d.error ?? "");
+        })
+        .catch((e) => setExplanation("Error: " + String(e)))
+        .finally(() => setLoadingImpact(false));
+    },
+    [projectId],
+  );
 
   const nodeColor = useCallback(
     (node: GNode) => {
@@ -76,90 +130,156 @@ export default function GraphView() {
   const selectedNode = data.nodes.find((n) => n.id === selectedId);
 
   return (
-    <main style={{ display: "flex", height: "100%" }}>
-      {/* Graph canvas */}
-      <div
-        ref={graphWrapRef}
-        style={{ flex: 1, position: "relative", overflow: "hidden" }}
-      >
-        {data.nodes.length > 0 ? (
-          <ForceGraph2D
-            graphData={data}
-            width={dims.width}
-            height={dims.height}
-            backgroundColor="#0f172a"
-            nodeId="id"
-            nodeRelSize={5}
-            nodeColor={nodeColor}
-            nodeLabel={(n: GNode) => `${n.name}  —  ${n.file}`}
-            linkColor={() => "#334155"}
-            linkDirectionalArrowLength={3}
-            linkDirectionalArrowRelPos={1}
-            onNodeClick={handleNodeClick}
-          />
-        ) : (
-          <EmptyState error={error} />
-        )}
-      </div>
-
-      {/* Sidebar */}
-      <aside
+    <main
+      style={{ display: "flex", flexDirection: "column", height: "100%" }}
+    >
+      {/* Top bar: repo input */}
+      <header
         style={{
-          width: 340,
-          borderLeft: "1px solid #1e293b",
-          padding: "20px 18px",
-          overflowY: "auto",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "12px 18px",
+          borderBottom: "1px solid #1e293b",
           background: "#0b1220",
         }}
       >
-        <h1 style={{ fontSize: 18, margin: "0 0 4px" }}>BlastRadius</h1>
-        <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 16px" }}>
-          Neo4j AuraDB · click any function to see its blast radius.
-        </p>
-
-        <Legend />
-
-        {selectedNode ? (
-          <section style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 13, color: "#94a3b8" }}>Selected</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#f87171" }}>
-              {selectedNode.name}
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
-              {selectedNode.file}
-            </div>
-
-            <div style={{ fontSize: 13, color: "#94a3b8" }}>Blast radius</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "#fbbf24" }}>
-              {affectedIds.size}
-              <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 400 }}>
-                {" "}
-                function{affectedIds.size === 1 ? "" : "s"} affected
-              </span>
-            </div>
-
-            <div
-              style={{
-                marginTop: 14,
-                fontSize: 13,
-                lineHeight: 1.5,
-                color: "#cbd5e1",
-                background: "#111c33",
-                border: "1px solid #1e293b",
-                borderRadius: 8,
-                padding: 12,
-                minHeight: 40,
-              }}
-            >
-              {loading ? "Analyzing…" : explanation || "—"}
-            </div>
-          </section>
-        ) : (
-          <p style={{ marginTop: 20, fontSize: 13, color: "#94a3b8" }}>
-            Click a node in the graph to analyze the impact of changing it.
-          </p>
+        <div style={{ fontWeight: 700, fontSize: 16, color: "#f8fafc" }}>
+          Blast<span style={{ color: "#f59e0b" }}>Radius</span>
+        </div>
+        <input
+          value={repoInput}
+          onChange={(e) => setRepoInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && analyze()}
+          placeholder="Public GitHub repo — e.g. facebook/react or a github.com URL"
+          style={{
+            flex: 1,
+            maxWidth: 560,
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #334155",
+            background: "#0f172a",
+            color: "#e2e8f0",
+            fontSize: 14,
+          }}
+        />
+        <button
+          onClick={analyze}
+          disabled={ingesting}
+          style={{
+            padding: "8px 16px",
+            borderRadius: 8,
+            border: "none",
+            background: ingesting ? "#475569" : "#f59e0b",
+            color: "#0b1220",
+            fontWeight: 600,
+            fontSize: 14,
+            cursor: ingesting ? "default" : "pointer",
+          }}
+        >
+          {ingesting ? "Analyzing…" : "Analyze"}
+        </button>
+        {stats && (
+          <span style={{ fontSize: 12, color: "#94a3b8" }}>
+            {slug}: {stats.functions} fns · {stats.calls} calls
+          </span>
         )}
-      </aside>
+        {ingestError && (
+          <span style={{ fontSize: 12, color: "#f87171" }}>{ingestError}</span>
+        )}
+      </header>
+
+      {/* Body: graph + sidebar */}
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        <div
+          ref={graphWrapRef}
+          style={{ flex: 1, position: "relative", overflow: "hidden" }}
+        >
+          {data.nodes.length > 0 ? (
+            <ForceGraph2D
+              graphData={data}
+              width={dims.width}
+              height={dims.height}
+              backgroundColor="#0f172a"
+              nodeId="id"
+              nodeRelSize={5}
+              nodeColor={nodeColor}
+              nodeLabel={(n: GNode) => `${n.name}  —  ${n.file}`}
+              linkColor={() => "#334155"}
+              linkDirectionalArrowLength={3}
+              linkDirectionalArrowRelPos={1}
+              onNodeClick={handleNodeClick}
+            />
+          ) : (
+            <EmptyState ingesting={ingesting} hasProject={!!projectId} />
+          )}
+        </div>
+
+        <aside
+          style={{
+            width: 340,
+            borderLeft: "1px solid #1e293b",
+            padding: "20px 18px",
+            overflowY: "auto",
+            background: "#0b1220",
+          }}
+        >
+          <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 16px" }}>
+            Neo4j AuraDB · click any function to see its blast radius.
+          </p>
+
+          <Legend />
+
+          {selectedNode ? (
+            <section style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 13, color: "#94a3b8" }}>Selected</div>
+              <div
+                style={{ fontSize: 15, fontWeight: 600, color: "#f87171" }}
+              >
+                {selectedNode.name}
+              </div>
+              <div
+                style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}
+              >
+                {selectedNode.file}
+              </div>
+
+              <div style={{ fontSize: 13, color: "#94a3b8" }}>Blast radius</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "#fbbf24" }}>
+                {affectedIds.size}
+                <span
+                  style={{ fontSize: 13, color: "#94a3b8", fontWeight: 400 }}
+                >
+                  {" "}
+                  function{affectedIds.size === 1 ? "" : "s"} affected
+                </span>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 14,
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: "#cbd5e1",
+                  background: "#111c33",
+                  border: "1px solid #1e293b",
+                  borderRadius: 8,
+                  padding: 12,
+                  minHeight: 40,
+                }}
+              >
+                {loadingImpact ? "Analyzing…" : explanation || "—"}
+              </div>
+            </section>
+          ) : (
+            <p style={{ marginTop: 20, fontSize: 13, color: "#94a3b8" }}>
+              {data.nodes.length > 0
+                ? "Click a node to analyze the impact of changing it."
+                : "Analyze a repo to get started."}
+            </p>
+          )}
+        </aside>
+      </div>
     </main>
   );
 }
@@ -193,7 +313,13 @@ function Legend() {
   );
 }
 
-function EmptyState({ error }: { error: string }) {
+function EmptyState({
+  ingesting,
+  hasProject,
+}: {
+  ingesting: boolean;
+  hasProject: boolean;
+}) {
   return (
     <div
       style={{
@@ -208,27 +334,29 @@ function EmptyState({ error }: { error: string }) {
         color: "#94a3b8",
       }}
     >
-      {error ? (
-        <>
-          <div style={{ color: "#f87171", fontWeight: 600, marginBottom: 8 }}>
-            Could not load graph
+      {ingesting ? (
+        <div style={{ fontWeight: 600 }}>
+          Cloning & parsing the repo into AuraDB…
+        </div>
+      ) : hasProject ? (
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>
+            No functions found
           </div>
-          <code style={{ fontSize: 12, maxWidth: 480 }}>{error}</code>
-          <p style={{ fontSize: 13, marginTop: 16 }}>
-            Check your AuraDB credentials in <code>.env.local</code>.
-          </p>
-        </>
-      ) : (
-        <>
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>No graph yet</div>
           <p style={{ fontSize: 13, maxWidth: 420 }}>
-            Ingest a codebase first:
-            <br />
-            <code style={{ color: "#e2e8f0" }}>
-              npm run ingest -- /path/to/some/repo
-            </code>
+            That project had no resolvable TS/JS functions. Try another repo.
           </p>
-        </>
+        </div>
+      ) : (
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 8, color: "#e2e8f0" }}>
+            Paste a public GitHub repo above and hit Analyze
+          </div>
+          <p style={{ fontSize: 13, maxWidth: 460 }}>
+            BlastRadius parses it into a Neo4j AuraDB call graph, then lights up
+            the blast radius of any function you click.
+          </p>
+        </div>
       )}
     </div>
   );

@@ -1,25 +1,27 @@
 import { getDriver } from "@/lib/neo4j";
 import { explainImpact, type Affected } from "@/lib/explain";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const id = new URL(req.url).searchParams.get("id");
-  if (!id) {
-    return Response.json({ error: "missing id" }, { status: 400 });
+  const url = new URL(req.url);
+  const projectId = url.searchParams.get("projectId");
+  const id = url.searchParams.get("id");
+  if (!projectId || !id) {
+    return Response.json({ error: "missing projectId or id" }, { status: 400 });
   }
 
   const session = getDriver().session();
   try {
     // Everything that transitively CALLS the target (up to 6 hops) is in the
-    // blast radius of changing it. This variable-length traversal is the
-    // graph-native core — awkward-to-impossible in plain SQL.
+    // blast radius. This variable-length traversal is the graph-native core.
     const res = await session.run(
-      `MATCH (t:Function {id: $id})
-       OPTIONAL MATCH (t)<-[:CALLS*1..6]-(a:Function)
+      `MATCH (t:Function { projectId: $pid, id: $id })
+       OPTIONAL MATCH (t)<-[:CALLS*1..6]-(a:Function { projectId: $pid })
        RETURN t.name AS name,
               collect(DISTINCT { id: a.id, name: a.name, file: a.file }) AS affected`,
-      { id },
+      { pid: projectId, id },
     );
 
     const record = res.records[0];
@@ -28,9 +30,9 @@ export async function GET(req: Request) {
     }
 
     const targetName = (record.get("name") as string) ?? id;
-    const affected: Affected[] = (
-      record.get("affected") as Affected[]
-    ).filter((a) => a && a.id);
+    const affected: Affected[] = (record.get("affected") as Affected[]).filter(
+      (a) => a && a.id,
+    );
 
     const explanation = await explainImpact(targetName, affected);
 

@@ -80,6 +80,33 @@ npm run dev
 
 Open <http://localhost:3000>, click any node, and watch the blast radius light up.
 
+## Use it (hosted)
+
+Once deployed (or running locally), you don't need the CLI at all:
+
+1. Paste a **public GitHub repo** (`owner/repo` or a full URL) into the top bar.
+2. Hit **Analyze** — the server downloads the repo tarball, parses it in-memory
+   with ts-morph, and writes a project-scoped call graph to AuraDB.
+3. Click any function to see its blast radius.
+
+Each analysis gets its own `projectId`, so multiple people can use the same
+deployment without clobbering each other's graphs. The active project is kept in
+the URL (`/?projectId=…`) so it's shareable.
+
+## Deploy to Vercel
+
+1. Push this repo to GitHub (already done for the hackathon).
+2. In Vercel: **Add New → Project → Import** this GitHub repo.
+3. Add Environment Variables (Production + Preview):
+   - `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` — your AuraDB credentials
+   - `ANTHROPIC_API_KEY` — optional (enables the AI explanation)
+   - `GITHUB_TOKEN` — optional (raises GitHub rate limits / allows private repos)
+4. Deploy. The ingest route runs on the Node.js runtime with `maxDuration = 60`.
+
+> Serverless functions have a time limit, so very large repos may time out during
+> ingest — fine for demo-sized repos. For big monorepos, run the local CLI instead
+> (`npm run ingest -- <path>`) and open the printed `/?projectId=…` link.
+
 ## Demo tips
 
 - Show the real graph in the **Neo4j Browser / Bloom** (from AuraDB) alongside the
@@ -91,11 +118,14 @@ Open <http://localhost:3000>, click any node, and watch the blast radius light u
 
 ## How it works
 
-- `scripts/ingest.ts` — loads the target project with ts-morph, walks each source
-  file for functions/methods/arrow-function variables, resolves `CALLS` edges
-  through the type checker, and writes nodes + relationships to AuraDB with batched
-  `UNWIND` statements.
-- `src/app/api/graph` — returns the full function call graph for visualization.
-- `src/app/api/impact` — runs the blast-radius traversal for a clicked function and
-  returns the affected set + an AI explanation.
-- `src/components/GraphView.tsx` — the interactive force-directed graph.
+- `src/lib/analyze.ts` — the shared core: parses in-memory TS/JS with ts-morph
+  (functions, methods, arrow-function vars), resolves `CALLS` edges through the type
+  checker (following import aliases), and writes a **project-scoped** graph to AuraDB
+  with batched `UNWIND` statements.
+- `src/lib/github.ts` — parses a repo reference, downloads the tarball, and extracts
+  its TS/JS files in memory (skips `node_modules`, build dirs, `.d.ts`).
+- `src/app/api/ingest` — `POST` a repo → parse → write graph → returns a `projectId`.
+- `src/app/api/graph` / `src/app/api/impact` — project-scoped graph fetch and the
+  `[:CALLS*1..6]` blast-radius traversal + AI explanation.
+- `src/components/GraphView.tsx` — repo input bar + interactive force-directed graph.
+- `scripts/ingest.ts` — optional local CLI for large repos; uses the same core.

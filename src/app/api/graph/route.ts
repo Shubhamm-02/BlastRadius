@@ -1,16 +1,24 @@
 import { getDriver } from "@/lib/neo4j";
 
-// Never cache — always read the live graph.
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const projectId = new URL(req.url).searchParams.get("projectId");
+  if (!projectId) {
+    return Response.json({ nodes: [], links: [] });
+  }
+
   const session = getDriver().session();
   try {
     const nodesRes = await session.run(
-      "MATCH (fn:Function) RETURN fn.id AS id, fn.name AS name, fn.file AS file",
+      "MATCH (fn:Function { projectId: $pid }) RETURN fn.id AS id, fn.name AS name, fn.file AS file",
+      { pid: projectId },
     );
     const linksRes = await session.run(
-      "MATCH (a:Function)-[:CALLS]->(b:Function) RETURN a.id AS source, b.id AS target",
+      `MATCH (a:Function { projectId: $pid })-[:CALLS]->(b:Function { projectId: $pid })
+       RETURN a.id AS source, b.id AS target`,
+      { pid: projectId },
     );
 
     const nodes = nodesRes.records.map((r) => ({
