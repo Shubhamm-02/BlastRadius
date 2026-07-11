@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "BlastRadius",
   description:
     "Build a call graph in Neo4j AuraDB and see the blast radius of changing any function.",
+  icons: { icon: "/Favicon.png" },
 };
 
 export const viewport: Viewport = {

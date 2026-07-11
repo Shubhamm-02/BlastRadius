@@ -9,3 +9,6 @@ next-env.d.ts
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Local teammate handoff doc, sent directly (not committed)
+DEMO_GUIDE.md

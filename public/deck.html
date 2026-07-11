@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BlastRadius - Presentation</title>
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reset.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --bg: #0b1220;
+        --bg2: #0f172a;
+        --panel: #111c33;
+        --border: #1e293b;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --dim: #64748b;
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --blue: #38bdf8;
+      }
+
+      .reveal {
+        font-family: "Inter", system-ui, sans-serif;
+        color: var(--text);
+        font-size: 30px;
+      }
+      .reveal-viewport {
+        background:
+          radial-gradient(1200px 600px at 80% -10%, #14233f 0%, transparent 60%),
+          radial-gradient(1000px 500px at -10% 110%, #1a1533 0%, transparent 55%),
+          var(--bg);
+      }
+
+      .reveal h1,
+      .reveal h2,
+      .reveal h3 {
+        font-family: "Inter", sans-serif;
+        color: #f8fafc;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        text-transform: none;
+        line-height: 1.1;
+      }
+      .reveal h1 { font-size: 2.4em; }
+      .reveal h2 { font-size: 1.5em; margin-bottom: 0.5em; }
+      .reveal p { line-height: 1.4; }
+      .reveal ul { display: block; }
+      .reveal li { margin: 0.35em 0; }
+      .reveal strong { color: #fff; }
+
+      .amber { color: var(--amber); }
+      .red { color: var(--red); }
+      .blue { color: var(--blue); }
+      .muted { color: var(--muted); }
+      .dim { color: var(--dim); }
+
+      .kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.5em;
+        color: var(--amber);
+        font-weight: 600;
+      }
+
+      .lead {
+        font-size: 1.15em;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .reveal pre {
+        width: 100%;
+        box-shadow: none;
+        font-size: 0.62em;
+      }
+      .reveal pre code,
+      .code {
+        font-family: "JetBrains Mono", monospace;
+        background: #0a1424;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 22px 26px;
+        color: #cbd5e1;
+        line-height: 1.6;
+        display: block;
+        max-height: none;
+        overflow: visible;
+      }
+      .code .kw { color: var(--amber); font-weight: 600; }
+      .code .rel { color: var(--red); font-weight: 600; }
+      .code .var { color: var(--blue); }
+
+      .footer {
+        margin-top: 34px;
+        font-size: 0.42em;
+        color: var(--dim);
+        text-align: center;
+        line-height: 1.5;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px 20px;
+        text-align: left;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .grid3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .featline {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+        text-align: left;
+        margin: 0.4em 0;
+      }
+      .dot {
+        color: var(--amber);
+        font-weight: 700;
+      }
+
+      .pipe {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .pipe .step {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 0.62em;
+        min-width: 150px;
+      }
+      .pipe .step b { color: #fff; display: block; font-size: 1.1em; }
+      .pipe .arrow { color: var(--amber); font-size: 0.8em; }
+
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-right: 22px;
+        font-size: 0.6em;
+        color: var(--muted);
+      }
+      .swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .reveal .slides section { text-align: left; }
+      .reveal .slides section.center { text-align: center; }
+
+      .stat {
+        text-align: center;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px;
+      }
+      .stat .big { font-size: 1.6em; font-weight: 800; color: var(--amber); }
+      .stat .lbl { font-size: 0.55em; color: var(--muted); }
+
+      .reveal .controls { color: var(--amber); }
+      .reveal .progress { color: var(--amber); }
+    </style>
+  </head>
+
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <!-- 1. TITLE -->
+        <section class="center" data-auto-animate>
+          <div class="kicker">HackHazards '26 · Neo4j Track (AuraDB)</div>
+          <h1 style="margin: 24px 0 10px">
+            Blast<span class="amber">Radius</span>
+          </h1>
+          <p class="lead">See what breaks before you change it.</p>
+          <p class="muted" style="font-size: 0.7em; max-width: 720px; margin: 18px auto 0">
+            Change-impact analysis for any codebase - powered by a
+            <strong>Neo4j&nbsp;AuraDB</strong> call graph.
+          </p>
+          <div class="footer">
+            Developer Tools &amp; Software Infrastructure<br />
+            <strong style="color: #94a3b8">Team UniByte</strong> &nbsp;·&nbsp; Manya
+            Nayak &amp; Shubham Shah
+          </div>
+        </section>
+
+        <!-- 2. PROBLEM -->
+        <section>
+          <div class="kicker">The problem</div>
+          <h2>“If I change this function… <span class="amber">what breaks?</span>”</h2>
+          <ul>
+            <li>Every developer asks this before touching shared code.</li>
+            <li>
+              Your IDE's “Find References” shows only <strong>direct</strong>
+              callers - <span class="muted">one hop.</span>
+            </li>
+            <li>
+              The real danger is <strong>transitive</strong>: the function four
+              calls away, in a flow you forgot about.
+            </li>
+            <li class="muted">
+              Today's answer: grep, guesswork, and hoping the tests catch it.
+            </li>
+          </ul>
+        </section>
+
+        <!-- 3. INSIGHT -->
+        <section class="center">
+          <div class="kicker">The insight</div>
+          <h2 style="font-size: 1.8em; margin-top: 20px">
+            Code is a <span class="amber">graph</span>.<br />
+            Impact is a <span class="amber">traversal</span>.
+          </h2>
+          <p class="lead" style="max-width: 760px; margin: 24px auto 0">
+            Functions call functions - that's a directed graph. “What breaks?”
+            is simply <em>everything upstream that can reach this node.</em>
+          </p>
+          <p class="muted" style="margin-top: 18px">
+            A graph question deserves a graph database.
+          </p>
+        </section>
+
+        <!-- 4. WHAT IT DOES -->
+        <section>
+          <div class="kicker">What it does</div>
+          <h2>Point it at a repo. Click a function. See the blast radius.</h2>
+          <div class="grid2" style="margin-top: 10px">
+            <div class="card">
+              <p><span class="dot">1.</span> Paste a <strong>GitHub URL</strong> - or upload a local folder.</p>
+              <p><span class="dot">2.</span> We build a <strong>call graph</strong> in Neo4j AuraDB.</p>
+              <p><span class="dot">3.</span> Click any function → its full <span class="amber">blast radius</span> lights up.</p>
+              <p><span class="dot">4.</span> <strong>Sarvam AI</strong> explains what to double-check before shipping.</p>
+            </div>
+            <div class="card">
+              <p class="legend" style="margin-bottom: 14px">
+                <span><span class="swatch" style="background:#ef4444"></span> Selected function</span>
+              </p>
+              <p class="legend" style="margin-bottom: 14px">
+                <span><span class="swatch" style="background:#f59e0b"></span> In the blast radius</span>
+              </p>
+              <p class="legend">
+                <span><span class="swatch" style="background:#64748b"></span> Unaffected</span>
+              </p>
+              <p class="dim" style="font-size: 0.55em; margin-top: 18px">
+                Replace this panel with a screenshot of the live app for the final deck.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. WHY GRAPH - THE KILLER -->
+        <section>
+          <div class="kicker">Why a graph database</div>
+          <h2>The query that a relational DB can't do cleanly</h2>
+          <div class="code" style="margin: 8px 0 18px">
+<span class="kw">MATCH</span> (target:<span class="var">Function</span> {id: $id})<span class="rel">&lt;-[:CALLS*1..6]-</span>(affected:<span class="var">Function</span>)<br />
+<span class="kw">RETURN DISTINCT</span> affected
+          </div>
+          <ul>
+            <li><strong>“Everything up to 6 calls away”</strong> - one line of Cypher.</li>
+            <li>The same thing in SQL = recursive joins / CTE gymnastics.</li>
+            <li class="muted">
+              This variable-length traversal is the graph-native core.
+              <strong>Neo4j&nbsp;AuraDB</strong> does the heavy lifting.
+            </li>
+          </ul>
+        </section>
+
+        <!-- 6. PIPELINE -->
+        <section class="center">
+          <div class="kicker" style="text-align:left">How it works</div>
+          <h2 style="text-align:left">From source code to blast radius</h2>
+          <div class="pipe">
+            <div class="step"><b>Repo / Folder</b><span class="muted">TS &amp; JS source</span></div>
+            <span class="arrow">▶</span>
+            <div class="step"><b>ts-morph</b><span class="muted">in-memory parse<br />+ call resolution</span></div>
+            <span class="arrow">▶</span>
+            <div class="step"><b>Neo4j AuraDB</b><span class="muted">the call graph</span></div>
+            <span class="arrow">▶</span>
+            <div class="step"><b>Cypher traversal</b><span class="muted">blast radius</span></div>
+            <span class="arrow">▶</span>
+            <div class="step"><b>Graph UI + AI</b><span class="muted">visualize &amp; explain</span></div>
+          </div>
+          <p class="muted" style="margin-top: 26px; font-size: 0.7em">
+            No code is executed - it's pure static analysis.
+          </p>
+        </section>
+
+        <!-- 7. GRAPH MODEL -->
+        <section>
+          <div class="kicker">The data model</div>
+          <h2>A small, powerful schema</h2>
+          <div class="code" style="margin-top: 6px">
+(<span class="var">:File</span> {path})<br />
+(<span class="var">:Function</span> {id, name, file, line})<br /><br />
+(<span class="var">:File</span>) <span class="rel">-[:IMPORTS]-&gt;</span> (<span class="var">:File</span>)<br />
+(<span class="var">:Function</span>) <span class="rel">-[:DEFINED_IN]-&gt;</span> (<span class="var">:File</span>)<br />
+(<span class="var">:Function</span>) <span class="rel">-[:CALLS]-&gt;</span> (<span class="var">:Function</span>)
+          </div>
+          <p class="muted" style="margin-top: 18px">
+            <span class="rel">CALLS</span> is the star. Every project is tagged with a
+            <strong>projectId</strong>, so many codebases live in one database
+            without colliding.
+          </p>
+        </section>
+
+        <!-- 8. FEATURES -->
+        <section>
+          <div class="kicker">Features</div>
+          <h2>Built to work on <span class="amber">real</span> repos</h2>
+          <div class="grid2">
+            <div>
+              <div class="featline"><span class="dot">▸</span> <span><strong>GitHub URL</strong> or browser <strong>folder upload</strong></span></div>
+              <div class="featline"><span class="dot">▸</span> <span><strong>Search + focus view</strong> - usable on repos with thousands of functions</span></div>
+              <div class="featline"><span class="dot">▸</span> <span><strong>Sarvam AI</strong> blast-radius explanations</span></div>
+            </div>
+            <div>
+              <div class="featline"><span class="dot">▸</span> <span><strong>tsconfig path-alias</strong> resolution (<span class="muted">@/… imports</span>)</span></div>
+              <div class="featline"><span class="dot">▸</span> <span><strong>Per-project isolation</strong> - multi-user safe</span></div>
+              <div class="featline"><span class="dot">▸</span> <span><strong>Usage analytics</strong> dashboard at <span class="muted">/stats</span></span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 9. TECH STACK -->
+        <section>
+          <div class="kicker">Tech stack</div>
+          <h2>What it's built with</h2>
+          <div class="grid3" style="margin-top: 6px">
+            <div class="card"><strong>Neo4j AuraDB</strong><br /><span class="muted" style="font-size:0.7em">graph database + Cypher traversal</span></div>
+            <div class="card"><strong>ts-morph</strong><br /><span class="muted" style="font-size:0.7em">parsing &amp; call-graph resolution</span></div>
+            <div class="card"><strong>Next.js + TypeScript</strong><br /><span class="muted" style="font-size:0.7em">app, API routes, UI</span></div>
+            <div class="card"><strong>react-force-graph</strong><br /><span class="muted" style="font-size:0.7em">interactive visualization</span></div>
+            <div class="card"><strong>Sarvam AI</strong><br /><span class="muted" style="font-size:0.7em">plain-English impact summaries</span></div>
+            <div class="card"><strong>Vercel</strong><br /><span class="muted" style="font-size:0.7em">deployment</span></div>
+          </div>
+        </section>
+
+        <!-- 10. CHALLENGES -->
+        <section>
+          <div class="kicker">What made it hard</div>
+          <h2>Getting the graph <span class="amber">right</span></h2>
+          <ul>
+            <li>
+              <strong>Cross-file calls</strong> resolved to the <em>import</em>,
+              not the function - we followed the alias to the real declaration.
+              <span class="muted">(edges 4 → 14 on our test project)</span>
+            </li>
+            <li>
+              <strong>Path aliases</strong> (<span class="muted">@/…</span>) broke
+              resolution on modern repos - we read <span class="muted">tsconfig</span>
+              to fix it. <span class="muted">(imports 8 → 17, calls 14 → 28)</span>
+            </li>
+            <li>
+              <strong>Big graphs are unreadable</strong> - we added search + a
+              focused blast-radius subgraph so it scales.
+            </li>
+          </ul>
+        </section>
+
+        <!-- 11. ROADMAP -->
+        <section>
+          <div class="kicker">Roadmap</div>
+          <h2>Where it goes next</h2>
+          <ul>
+            <li><strong>Language-agnostic</strong> via the Language Server Protocol - Python, Go, Java…</li>
+            <li><strong>Downstream impact</strong> - what a function <em>calls</em>, not just its callers.</li>
+            <li><strong>CI check</strong> - auto-comment the blast radius on every pull request.</li>
+            <li><strong>Private repos</strong> &amp; saved analysis history.</li>
+          </ul>
+        </section>
+
+        <!-- 12. CLOSING -->
+        <section class="center">
+          <div class="kicker">Thank you</div>
+          <h1 style="margin: 20px 0 10px">
+            Blast<span class="amber">Radius</span>
+          </h1>
+          <p class="lead">See what breaks before you change it.</p>
+          <div class="grid2" style="max-width: 760px; margin: 28px auto 0">
+            <div class="card center">
+              <div class="muted" style="font-size:0.6em">LIVE DEMO</div>
+              <div style="font-size:0.72em">blast-radius-five.vercel.app</div>
+            </div>
+            <div class="card center">
+              <div class="muted" style="font-size:0.6em">CODE</div>
+              <div style="font-size:0.72em">github.com/Shubhamm-02/BlastRadius</div>
+            </div>
+          </div>
+          <div class="footer">
+            Team UniByte - Manya Nayak &amp; Shubham Shah · HackHazards '26
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+    <script>
+      Reveal.initialize({
+        hash: true,
+        transition: "slide",
+        backgroundTransition: "fade",
+        controls: true,
+        progress: true,
+        slideNumber: "c/t",
+        width: 1280,
+        height: 720,
+        margin: 0.06,
+      });
+    </script>
+  </body>
+</html>
