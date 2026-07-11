@@ -1,25 +1,55 @@
 import { randomUUID } from "node:crypto";
 import { getDriver } from "@/lib/neo4j";
 import { parseRepoInput, fetchRepoFiles } from "@/lib/github";
-import { analyzeProject, writeGraph } from "@/lib/analyze";
+import {
+  analyzeProject,
+  writeGraph,
+  type SourceFileInput,
+} from "@/lib/analyze";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
+const MAX_UPLOAD_FILES = 2000;
+
+interface IngestBody {
+  repo?: string;
+  files?: SourceFileInput[];
+  name?: string;
+}
+
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { repo?: string };
-    const repo = body.repo;
-    if (!repo || typeof repo !== "string") {
-      return Response.json({ error: "Missing 'repo'." }, { status: 400 });
+    const body = (await req.json()) as IngestBody;
+
+    let files: SourceFileInput[];
+    let slug: string;
+
+    if (Array.isArray(body.files)) {
+      // Folder upload from the browser.
+      files = body.files
+        .filter(
+          (f) =>
+            f && typeof f.path === "string" && typeof f.content === "string",
+        )
+        .slice(0, MAX_UPLOAD_FILES);
+      slug = body.name?.trim() || "uploaded";
+    } else if (body.repo && typeof body.repo === "string") {
+      // Public GitHub repo.
+      const ref = parseRepoInput(body.repo);
+      files = await fetchRepoFiles(ref);
+      slug = `${ref.owner}/${ref.repo}${ref.ref ? "@" + ref.ref : ""}`;
+    } else {
+      return Response.json(
+        { error: "Provide a 'repo' string or a 'files' array." },
+        { status: 400 },
+      );
     }
 
-    const ref = parseRepoInput(repo);
-    const files = await fetchRepoFiles(ref);
     if (files.length === 0) {
       return Response.json(
-        { error: "No TypeScript/JavaScript files found in that repo." },
+        { error: "No TypeScript/JavaScript files found." },
         { status: 400 },
       );
     }
@@ -30,7 +60,7 @@ export async function POST(req: Request) {
 
     return Response.json({
       projectId,
-      slug: `${ref.owner}/${ref.repo}${ref.ref ? "@" + ref.ref : ""}`,
+      slug,
       stats: {
         files: result.files.length,
         functions: result.funcs.length,

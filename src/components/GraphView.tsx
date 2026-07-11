@@ -47,6 +47,16 @@ export default function GraphView() {
   const graphWrapRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<{ zoomToFit?: (ms?: number, px?: number) => void } | null>(null);
   const shouldFit = useRef(false);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // <input type="file"> can't take webkitdirectory as a typed JSX prop.
+  useEffect(() => {
+    const el = folderInputRef.current;
+    if (el) {
+      el.setAttribute("webkitdirectory", "");
+      el.setAttribute("directory", "");
+    }
+  }, []);
 
   // Deep-link / CLI support: /?projectId=xxx
   useEffect(() => {
@@ -80,16 +90,14 @@ export default function GraphView() {
     return () => window.removeEventListener("resize", measure);
   }, [projectId]);
 
-  const analyze = useCallback(() => {
-    const repo = repoInput.trim();
-    if (!repo || ingesting) return;
+  const postIngest = useCallback((payload: object) => {
     setIngesting(true);
     setIngestError("");
     setStats(null);
     fetch("/api/ingest", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ repo }),
+      body: JSON.stringify(payload),
     })
       .then((r) => r.json())
       .then((d) => {
@@ -106,7 +114,65 @@ export default function GraphView() {
       })
       .catch((e) => setIngestError(String(e)))
       .finally(() => setIngesting(false));
-  }, [repoInput, ingesting]);
+  }, []);
+
+  const analyze = useCallback(() => {
+    const repo = repoInput.trim();
+    if (!repo || ingesting) return;
+    postIngest({ repo });
+  }, [repoInput, ingesting, postIngest]);
+
+  const handleFolder = useCallback(
+    async (fileList: FileList) => {
+      if (ingesting) return;
+      const CODE_EXT = /\.(tsx?|jsx?|mts|cts|mjs|cjs)$/i;
+      const SKIP = /(^|\/)(node_modules|dist|build|out|\.next|coverage|vendor)\//;
+      const MAX_BYTES = 4_000_000; // stay under serverless request-body limits
+
+      const picked = Array.from(fileList).filter((f) => {
+        const p = f.webkitRelativePath || f.name;
+        return CODE_EXT.test(p) && !SKIP.test(p) && !p.endsWith(".d.ts");
+      });
+      if (picked.length === 0) {
+        setIngestError("No TypeScript/JavaScript files in that folder.");
+        return;
+      }
+
+      setIngesting(true);
+      setIngestError("");
+      try {
+        const files: { path: string; content: string }[] = [];
+        let total = 0;
+        let truncated = false;
+        for (const f of picked) {
+          if (total + f.size > MAX_BYTES) {
+            truncated = true;
+            break;
+          }
+          const content = await f.text();
+          total += content.length;
+          // Strip the top-level folder name so ids match GitHub-style paths.
+          const rel =
+            (f.webkitRelativePath || f.name).split("/").slice(1).join("/") ||
+            f.name;
+          files.push({ path: rel, content });
+        }
+        const name =
+          (picked[0].webkitRelativePath || "").split("/")[0] || "uploaded";
+        if (truncated) {
+          setIngestError(
+            `Folder exceeds ${MAX_BYTES / 1e6}MB of code — analyzing the first ${files.length} files. Use a GitHub URL or the local CLI for larger repos.`,
+          );
+        }
+        setIngesting(false); // postIngest re-sets it
+        postIngest({ files, name });
+      } catch (e) {
+        setIngestError(String(e));
+        setIngesting(false);
+      }
+    },
+    [ingesting, postIngest],
+  );
 
   const selectFunction = useCallback(
     (id: string) => {
@@ -190,11 +256,38 @@ export default function GraphView() {
           value={repoInput}
           onChange={(e) => setRepoInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && analyze()}
-          placeholder="Public GitHub repo — e.g. facebook/react or a github.com URL"
+          placeholder="Public GitHub repo, e.g. facebook/react or a github.com URL"
           style={inputStyle(560)}
         />
         <button onClick={analyze} disabled={ingesting} style={btnStyle(ingesting)}>
           {ingesting ? "Analyzing…" : "Analyze"}
+        </button>
+        <span style={{ fontSize: 12, color: "#475569" }}>or</span>
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          hidden
+          onChange={(e) => {
+            if (e.target.files) handleFolder(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <button
+          onClick={() => folderInputRef.current?.click()}
+          disabled={ingesting}
+          style={{
+            padding: "8px 14px",
+            borderRadius: 8,
+            border: "1px solid #334155",
+            background: "transparent",
+            color: "#cbd5e1",
+            fontWeight: 600,
+            fontSize: 14,
+            cursor: ingesting ? "default" : "pointer",
+          }}
+        >
+          Upload folder
         </button>
         {stats && (
           <span style={{ fontSize: 12, color: "#94a3b8" }}>

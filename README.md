@@ -82,12 +82,21 @@ Open <http://localhost:3000>, click any node, and watch the blast radius light u
 
 ## Use it (hosted)
 
-Once deployed (or running locally), you don't need the CLI at all:
+Once deployed (or running locally), you don't need the CLI at all. Two ways to
+load a codebase:
 
-1. Paste a **public GitHub repo** (`owner/repo` or a full URL) into the top bar.
-2. Hit **Analyze** — the server downloads the repo tarball, parses it in-memory
-   with ts-morph, and writes a project-scoped call graph to AuraDB.
-3. Click any function to see its blast radius.
+- **Public GitHub repo** — paste `owner/repo` (or a full URL) and hit **Analyze**;
+  the server downloads the repo tarball and parses it in-memory with ts-morph.
+- **Upload folder** — pick a local folder in the browser; its `.ts/.js` files are
+  sent to the server and parsed (skips `node_modules`/build dirs; ~4 MB cap to stay
+  under serverless request-body limits — use a GitHub URL or the CLI for larger).
+
+Either way you get a project-scoped call graph in AuraDB. Then:
+
+- **Search** any function by name/file in the left panel (works even with
+  thousands of functions).
+- Click it to light up its **blast radius** — the "Blast radius" view shows just
+  the affected subgraph; toggle "Full graph" for the overview.
 
 Each analysis gets its own `projectId`, so multiple people can use the same
 deployment without clobbering each other's graphs. The active project is kept in
