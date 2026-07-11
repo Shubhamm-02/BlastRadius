@@ -272,7 +272,7 @@ export default function GraphView() {
           value={repoInput}
           onChange={(e) => setRepoInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && analyze()}
-          placeholder="Public GitHub repo, e.g. facebook/react or a github.com URL"
+          placeholder="Public GitHub repo, e.g. pmndrs/zustand or a github.com URL"
           style={inputStyle(560)}
         />
         <button onClick={analyze} disabled={ingesting} style={btnStyle(ingesting)}>
