@@ -26,6 +26,20 @@ const COLOR_IDLE = "#64748b";
 const idOf = (x: string | GNode): string =>
   typeof x === "object" && x ? x.id : (x as string);
 
+// Privacy-friendly anonymous id (no PII), persisted per browser.
+function getAnonId(): string {
+  try {
+    let id = localStorage.getItem("br_anon");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("br_anon", id);
+    }
+    return id;
+  } catch {
+    return "anon";
+  }
+}
+
 export default function GraphView() {
   const [repoInput, setRepoInput] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -97,7 +111,7 @@ export default function GraphView() {
     fetch("/api/ingest", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, anonId: getAnonId() }),
     })
       .then((r) => r.json())
       .then((d) => {
@@ -185,7 +199,7 @@ export default function GraphView() {
       setLoadingImpact(true);
       shouldFit.current = true;
       fetch(
-        `/api/impact?projectId=${encodeURIComponent(projectId)}&id=${encodeURIComponent(id)}`,
+        `/api/impact?projectId=${encodeURIComponent(projectId)}&id=${encodeURIComponent(id)}&anonId=${encodeURIComponent(getAnonId())}`,
       )
         .then((r) => r.json())
         .then((d) => {
@@ -299,6 +313,17 @@ export default function GraphView() {
         {ingestError && (
           <span style={{ fontSize: 12, color: "#f87171" }}>{ingestError}</span>
         )}
+        <a
+          href="/stats"
+          style={{
+            marginLeft: "auto",
+            fontSize: 13,
+            color: "#94a3b8",
+            textDecoration: "none",
+          }}
+        >
+          Stats →
+        </a>
       </header>
 
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>

@@ -6,6 +6,7 @@ import {
   writeGraph,
   type SourceFileInput,
 } from "@/lib/analyze";
+import { logEvent } from "@/lib/events";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,6 +18,7 @@ interface IngestBody {
   repo?: string;
   files?: SourceFileInput[];
   name?: string;
+  anonId?: string;
 }
 
 export async function POST(req: Request) {
@@ -57,6 +59,13 @@ export async function POST(req: Request) {
     const result = analyzeProject(files);
     const projectId = randomUUID();
     await writeGraph(getDriver(), projectId, result);
+
+    await logEvent(getDriver(), {
+      type: "ingest",
+      anonId: body.anonId,
+      repo: slug,
+      projectId,
+    });
 
     return Response.json({
       projectId,

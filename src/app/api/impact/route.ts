@@ -1,5 +1,6 @@
 import { getDriver } from "@/lib/neo4j";
 import { explainImpact, type Affected } from "@/lib/explain";
+import { logEvent } from "@/lib/events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const projectId = url.searchParams.get("projectId");
   const id = url.searchParams.get("id");
+  const anonId = url.searchParams.get("anonId") ?? undefined;
   if (!projectId || !id) {
     return Response.json({ error: "missing projectId or id" }, { status: 400 });
   }
@@ -35,6 +37,13 @@ export async function GET(req: Request) {
     );
 
     const explanation = await explainImpact(targetName, affected);
+
+    await logEvent(getDriver(), {
+      type: "impact",
+      anonId,
+      functionId: id,
+      projectId,
+    });
 
     return Response.json({
       target: targetName,
