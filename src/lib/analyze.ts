@@ -1,5 +1,20 @@
-import { Project, Node, SyntaxKind } from "ts-morph";
+import { Project, Node, SyntaxKind, ts } from "ts-morph";
 import neo4j, { type Driver } from "neo4j-driver";
+
+const CODE_EXT_RE = /\.(tsx?|jsx?|mts|cts|mjs|cjs)$/i;
+const CONFIG_RE = /(^|\/)(tsconfig|jsconfig)[^/]*\.json$/i;
+
+/** Join a path against a dir inside the in-memory FS (handles "." and ".."). */
+function joinInMem(dir: string, rel: string): string {
+  const parts = `${dir}/${rel}`.split("/").filter(Boolean);
+  const out: string[] = [];
+  for (const p of parts) {
+    if (p === ".") continue;
+    else if (p === "..") out.pop();
+    else out.push(p);
+  }
+  return "/" + out.join("/");
+}
 
 export interface SourceFileInput {
   path: string; // repo-relative, e.g. "src/auth.ts"
@@ -18,12 +33,43 @@ export interface AnalyzeResult {
  * GitHub ingest API route and the local CLI script.
  */
 export function analyzeProject(inputs: SourceFileInput[]): AnalyzeResult {
-  const project = new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: { allowJs: true },
-  });
+  // Detect the shallowest tsconfig/jsconfig so path aliases (e.g. "@/x")
+  // resolve to real files instead of being dropped.
+  const configEntry = inputs
+    .filter((f) => CONFIG_RE.test(f.path))
+    .sort((a, b) => a.path.split("/").length - b.path.split("/").length)[0];
+
+  const compilerOptions: ts.CompilerOptions = {
+    allowJs: true,
+    moduleResolution: ts.ModuleResolutionKind.Node10,
+  };
+
+  if (configEntry) {
+    try {
+      const parsed = ts.parseConfigFileTextToJson(
+        "/" + configEntry.path,
+        configEntry.content,
+      );
+      const co = (parsed.config?.compilerOptions ?? {}) as {
+        baseUrl?: string;
+        paths?: Record<string, string[]>;
+      };
+      const dir = "/" + configEntry.path.split("/").slice(0, -1).join("/");
+      if (co.paths) compilerOptions.paths = co.paths;
+      // paths without an explicit baseUrl resolve relative to the config dir.
+      const rawBase = co.baseUrl ?? (co.paths ? "." : undefined);
+      if (rawBase !== undefined) {
+        compilerOptions.baseUrl = joinInMem(dir, rawBase);
+      }
+    } catch {
+      // Malformed tsconfig — fall back to plain resolution.
+    }
+  }
+
+  const project = new Project({ useInMemoryFileSystem: true, compilerOptions });
 
   for (const f of inputs) {
+    if (!CODE_EXT_RE.test(f.path)) continue; // skip tsconfig/json inputs
     const norm = "/" + f.path.replace(/^\/+/, "");
     project.createSourceFile(norm, f.content, { overwrite: true });
   }

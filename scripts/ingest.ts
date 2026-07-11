@@ -9,6 +9,7 @@ dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
 const CODE_EXT = /\.(tsx?|jsx?|mts|cts|mjs|cjs)$/i;
+const CONFIG_RE = /(^|\/)(tsconfig|jsconfig)[^/]*\.json$/i;
 
 async function main() {
   const target = process.argv[2];
@@ -37,7 +38,7 @@ async function main() {
     .map((e) => String(e))
     .filter(
       (e) =>
-        CODE_EXT.test(e) &&
+        (CODE_EXT.test(e) || CONFIG_RE.test(e)) &&
         !e.includes("node_modules") &&
         !e.endsWith(".d.ts"),
     )

@@ -3,6 +3,7 @@ import { extract } from "tar-stream";
 import type { SourceFileInput } from "@/lib/analyze";
 
 const CODE_EXT = /\.(tsx?|jsx?|mts|cts|mjs|cjs)$/i;
+const CONFIG_RE = /(^|\/)(tsconfig|jsconfig)[^/]*\.json$/i;
 const SKIP_DIR =
   /(^|\/)(node_modules|dist|build|out|\.next|coverage|vendor|\.git)\//;
 
@@ -80,11 +81,10 @@ function extractCodeFiles(tarBuf: Buffer): Promise<SourceFileInput[]> {
     ex.on("entry", (header, stream, next) => {
       // Tarball entries are prefixed with a top-level "owner-repo-sha/" dir.
       const rel = header.name.split("/").slice(1).join("/");
+      const isCode = CODE_EXT.test(rel) && !rel.endsWith(".d.ts");
+      const isConfig = CONFIG_RE.test(rel); // for path-alias resolution
       const keep =
-        header.type === "file" &&
-        CODE_EXT.test(rel) &&
-        !SKIP_DIR.test(rel) &&
-        !rel.endsWith(".d.ts");
+        header.type === "file" && (isCode || isConfig) && !SKIP_DIR.test(rel);
 
       if (!keep) {
         stream.resume();

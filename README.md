@@ -130,7 +130,8 @@ the URL (`/?projectId=…`) so it's shareable.
 - `src/lib/analyze.ts` — the shared core: parses in-memory TS/JS with ts-morph
   (functions, methods, arrow-function vars), resolves `CALLS` edges through the type
   checker (following import aliases), and writes a **project-scoped** graph to AuraDB
-  with batched `UNWIND` statements.
+  with batched `UNWIND` statements. It reads the repo's `tsconfig.json`
+  (`baseUrl` / `paths`) so `@/`-style alias imports resolve to real files.
 - `src/lib/github.ts` — parses a repo reference, downloads the tarball, and extracts
   its TS/JS files in memory (skips `node_modules`, build dirs, `.d.ts`).
 - `src/app/api/ingest` — `POST` a repo → parse → write graph → returns a `projectId`.

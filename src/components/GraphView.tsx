@@ -126,12 +126,14 @@ export default function GraphView() {
     async (fileList: FileList) => {
       if (ingesting) return;
       const CODE_EXT = /\.(tsx?|jsx?|mts|cts|mjs|cjs)$/i;
+      const CONFIG_RE = /(^|\/)(tsconfig|jsconfig)[^/]*\.json$/i;
       const SKIP = /(^|\/)(node_modules|dist|build|out|\.next|coverage|vendor)\//;
       const MAX_BYTES = 4_000_000; // stay under serverless request-body limits
 
       const picked = Array.from(fileList).filter((f) => {
         const p = f.webkitRelativePath || f.name;
-        return CODE_EXT.test(p) && !SKIP.test(p) && !p.endsWith(".d.ts");
+        const isCode = CODE_EXT.test(p) && !p.endsWith(".d.ts");
+        return (isCode || CONFIG_RE.test(p)) && !SKIP.test(p);
       });
       if (picked.length === 0) {
         setIngestError("No TypeScript/JavaScript files in that folder.");
