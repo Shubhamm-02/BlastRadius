@@ -50,7 +50,7 @@ export default function GraphView() {
 
   const [full, setFull] = useState<GraphData>({ nodes: [], links: [] });
   const [query, setQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"focus" | "full">("focus");
+  const [viewMode, setViewMode] = useState<"focus" | "full">("full");
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [affectedIds, setAffectedIds] = useState<Set<string>>(new Set());
@@ -90,7 +90,10 @@ export default function GraphView() {
     setQuery("");
     fetch(`/api/graph?projectId=${encodeURIComponent(projectId)}`)
       .then((r) => r.json())
-      .then((d) => setFull(d.error ? { nodes: [], links: [] } : (d as GraphData)))
+       .then((d) => {
+        setFull(d.error ? { nodes: [], links: [] } : (d as GraphData));
+        shouldFit.current = true;
+      })
       .catch(() => setFull({ nodes: [], links: [] }));
   }, [projectId]);
 
