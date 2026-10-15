@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import Link from "next/link";
 import { getDriver } from "@/lib/neo4j";
 
@@ -50,7 +51,7 @@ async function getStats() {
         type: r.get("type") as string,
         repo: r.get("repo") as string | null,
         fn: r.get("fn") as string | null,
-        anon: r.get("anon") as string | null,
+        visitor: visitorLabel(r.get("anon") as string | null),
         ts: Number(r.get("ts")),
       })),
     };
@@ -65,7 +66,8 @@ export default async function StatsPage() {
   try {
     data = await getStats();
   } catch (e) {
-    error = String(e);
+    console.error("[stats] failed to load", e);
+    error = "the database is unreachable right now.";
   }
 
   return (
@@ -91,7 +93,12 @@ export default async function StatsPage() {
       ) : data ? (
         <>
           <section
-            style={{ display: "flex", gap: 16, marginBottom: 28, flexWrap: "wrap" }}
+            style={{
+              display: "flex",
+              gap: 16,
+              marginBottom: 28,
+              flexWrap: "wrap",
+            }}
           >
             <Stat label="Anonymous visitors" value={data.visitors} />
             <Stat label="Repos analyzed" value={data.ingest} />
@@ -139,9 +146,7 @@ export default async function StatsPage() {
                   {data.recent.map((e, i) => (
                     <tr key={i} style={{ borderTop: "1px solid #1e293b" }}>
                       <td style={td}>{new Date(e.ts).toLocaleString()}</td>
-                      <td style={{ ...td, color: "#64748b" }}>
-                        {(e.anon ?? "anon").slice(0, 8)}
-                      </td>
+                      <td style={{ ...td, color: "#64748b" }}>{e.visitor}</td>
                       <td style={td}>
                         <span
                           style={{
@@ -164,6 +169,15 @@ export default async function StatsPage() {
       ) : null}
     </main>
   );
+}
+
+/**
+ * A stable pseudonym for a visitor. The raw anonId never leaves the server;
+ * a truncated one-way hash still shows repeat visits.
+ */
+function visitorLabel(anonId: string | null): string {
+  if (!anonId || anonId === "anon") return "anonymous";
+  return "v-" + createHash("sha256").update(anonId).digest("hex").slice(0, 6);
 }
 
 function shortFn(fn: string | null): string {
