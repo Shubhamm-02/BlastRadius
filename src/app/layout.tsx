@@ -1,23 +1,41 @@
-import "./globals.css";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { Providers } from "./providers";
+import "./globals.css";
+
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "http://localhost:3000";
 
 export const metadata: Metadata = {
-  title: "BlastRadius",
+  metadataBase: new URL(siteUrl),
+  title: { default: "BlastRadius", template: "%s · BlastRadius" },
   description:
-    "Build a call graph in Neo4j AuraDB and see the blast radius of changing any function.",
-  icons: { icon: "/Favicon.png" },
+    "Call graphs for TypeScript and JavaScript repos. Select a function to see everything that depends on it.",
+  applicationName: "BlastRadius",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#090b10" },
+    { media: "(prefers-color-scheme: light)", color: "#f8f9fb" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html
+      lang="en"
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

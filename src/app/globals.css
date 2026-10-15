@@ -1,26 +1,162 @@
-* {
-  box-sizing: border-box;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens as RGB channels so Tailwind opacity modifiers work
+ * (bg-surface-2/80). Canvas code reads the same variables through
+ * src/lib/palette.ts, so graph colors follow the theme.
+ */
+@layer base {
+  :root {
+    --bg: 248 249 251;
+    --surface-1: 255 255 255;
+    --surface-2: 243 245 248;
+    --surface-3: 233 237 242;
+    --border: 224 228 235;
+    --border-strong: 200 207 219;
+    --text: 13 17 28;
+    --text-muted: 71 80 98;
+    --text-dim: 96 105 122;
+    --accent: 245 158 11;
+    --accent-fg: 26 18 4;
+    --accent-ink: 146 88 6;
+    --danger: 220 38 38;
+    --danger-fg: 255 255 255;
+    --danger-ink: 185 28 28;
+    --info: 3 105 161;
+    --ok: 4 120 87;
+
+    --edge-call: 148 160 179;
+    --edge-jsx: 2 132 199;
+    --edge-new: 13 148 136;
+    --edge-ref: 168 120 40;
+
+    --cluster-1: 99 132 176;
+    --cluster-2: 74 150 140;
+    --cluster-3: 160 128 92;
+    --cluster-4: 130 116 168;
+    --cluster-5: 96 150 96;
+    --cluster-6: 168 104 120;
+    --cluster-7: 92 140 170;
+    --cluster-8: 140 140 110;
+
+    --shadow-raised: inset 0 1px 0 0 rgb(255 255 255 / 0.7),
+      0 1px 2px rgb(16 24 40 / 0.06), 0 6px 16px -8px rgb(16 24 40 / 0.12);
+    --shadow-overlay: 0 1px 2px rgb(16 24 40 / 0.06),
+      0 12px 32px -8px rgb(16 24 40 / 0.18), 0 32px 64px -24px rgb(16 24 40 / 0.16);
+    --grain-opacity: 0.025;
+
+    color-scheme: light;
+  }
+
+  .dark {
+    --bg: 9 11 16;
+    --surface-1: 14 17 24;
+    --surface-2: 20 24 33;
+    --surface-3: 29 34 46;
+    --border: 33 39 52;
+    --border-strong: 50 58 76;
+    --text: 232 235 241;
+    --text-muted: 160 168 184;
+    --text-dim: 128 137 154;
+    --accent: 245 165 36;
+    --accent-fg: 24 16 4;
+    --accent-ink: 245 175 60;
+    --danger: 220 38 38;
+    --danger-fg: 255 255 255;
+    --danger-ink: 248 113 113;
+    --info: 56 189 248;
+    --ok: 52 211 153;
+
+    --edge-call: 71 82 104;
+    --edge-jsx: 56 152 200;
+    --edge-new: 45 170 150;
+    --edge-ref: 150 112 50;
+
+    --cluster-1: 86 112 150;
+    --cluster-2: 70 128 120;
+    --cluster-3: 138 112 84;
+    --cluster-4: 112 100 148;
+    --cluster-5: 86 128 88;
+    --cluster-6: 146 92 108;
+    --cluster-7: 80 122 150;
+    --cluster-8: 120 120 96;
+
+    --shadow-raised: inset 0 1px 0 0 rgb(255 255 255 / 0.045),
+      0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -10px rgb(0 0 0 / 0.55);
+    --shadow-overlay: inset 0 1px 0 0 rgb(255 255 255 / 0.05),
+      0 2px 4px rgb(0 0 0 / 0.3), 0 24px 56px -12px rgb(0 0 0 / 0.65);
+    --grain-opacity: 0.035;
+
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg font-sans text-base text-text antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* Static film grain on the shell background; cheap, never animates. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/70 ring-offset-2 ring-offset-bg;
+  }
+
+  ::selection {
+    @apply bg-accent/30 text-text;
+  }
+
+  code,
+  kbd,
+  .font-mono {
+    font-feature-settings: "zero" 0, "ss01" 0;
+  }
 }
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
+@layer utilities {
+  .shimmer {
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--surface-3) / 0) 0%,
+      rgb(var(--surface-3) / 0.9) 50%,
+      rgb(var(--surface-3) / 0) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border-strong)) transparent;
+  }
 }
 
-#__next,
-main {
-  height: 100%;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
