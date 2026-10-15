@@ -79,12 +79,12 @@ export async function POST(req: Request) {
       });
 
     if (!(req.headers.get("accept") ?? "").includes("application/x-ndjson")) {
-      const result = await runIngest(input);
+      const result = await runIngest(input, undefined, req.signal);
       logIngest(result);
       return Response.json(result);
     }
 
-    return new Response(streamIngest(input, logIngest), {
+    return new Response(streamIngest(input, logIngest, req.signal), {
       headers: {
         "Content-Type": "application/x-ndjson; charset=utf-8",
         "Cache-Control": "no-store",
@@ -99,19 +99,25 @@ export async function POST(req: Request) {
 function streamIngest(
   input: IngestInput,
   onDone: (r: IngestResult) => void,
+  requestSignal: AbortSignal,
 ): ReadableStream<Uint8Array> {
   const enc = new TextEncoder();
+  // Cancelling (closing the stream or dropping the request) stops the ingest
+  // at its next progress checkpoint and discards the partial project.
+  const abort = new AbortController();
+  requestSignal.addEventListener("abort", () => abort.abort(), { once: true });
   let open = true;
   return new ReadableStream<Uint8Array>({
     cancel() {
-      open = false; // client went away; the ingest still finishes server-side
+      open = false;
+      abort.abort();
     },
     async start(controller) {
       const send = (ev: IngestStreamEvent) => {
         if (open) controller.enqueue(enc.encode(JSON.stringify(ev) + "\n"));
       };
       try {
-        const result = await runIngest(input, send);
+        const result = await runIngest(input, send, abort.signal);
         onDone(result);
         send({
           stage: "done",
@@ -120,6 +126,7 @@ function streamIngest(
           result,
         });
       } catch (err) {
+        if (abort.signal.aborted) return;
         const e = toApiError(err, "api/ingest");
         send({ stage: "error", error: { code: e.code, message: e.message } });
       } finally {

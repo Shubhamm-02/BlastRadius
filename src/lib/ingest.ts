@@ -64,12 +64,16 @@ const STAGE_SPAN: Record<IngestStage, [number, number]> = {
 export async function runIngest(
   input: IngestInput,
   emit: (e: IngestProgressEvent) => void = () => {},
+  signal?: AbortSignal,
 ): Promise<IngestResult> {
+  // Throwing from a progress callback unwinds the analyzer and rolls back
+  // the current write transaction; writeGraph then deletes the partial project.
   const report = (
     stage: IngestProgressEvent["stage"],
     within: number,
     detail: string,
   ) => {
+    signal?.throwIfAborted();
     const [a, b] = STAGE_SPAN[stage];
     const clamped = Math.min(1, Math.max(0, within));
     emit({
@@ -83,6 +87,7 @@ export async function runIngest(
   let slug: string;
   let source: ProjectSource;
   let skipped = 0;
+  let commit: string | undefined;
 
   if (input.kind === "github") {
     const ref = parseRepoInput(input.repo);
@@ -97,9 +102,10 @@ export async function runIngest(
         stage === "fetch" ? 0.5 : 1 - 1 / (1 + extracted / 10),
         detail,
       );
-    });
+    }, signal);
     files = fetched.files;
     skipped = fetched.stats.skipped;
+    commit = fetched.stats.commit;
   } else {
     slug = input.name?.trim() || "uploaded";
     source = "upload";
@@ -126,7 +132,7 @@ export async function runIngest(
     getDriver(),
     projectId,
     result,
-    { slug, source, truncated, skippedFiles: skipped },
+    { slug, source, truncated, skippedFiles: skipped, commit },
     (p, detail) => report("write", p, detail),
   );
 
