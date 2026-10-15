@@ -640,6 +640,7 @@ export interface WriteMeta {
   /** Files dropped by size/count limits before analysis. */
   truncated?: boolean;
   skippedFiles?: number;
+  commit?: string;
 }
 
 export type WriteProgress = (progress: number, detail: string) => void;
@@ -738,7 +739,8 @@ export async function writeGraph(
       `MATCH (p:Project { id: $pid })
        SET p.status = 'ready', p.files = $files, p.functions = $functions,
            p.imports = $imports, p.calls = $calls,
-           p.truncated = $truncated, p.skippedFiles = $skipped`,
+           p.truncated = $truncated, p.skippedFiles = $skipped,
+           p.commit = $commit`,
       {
         pid: projectId,
         files: neo4j.int(r.files.length),
@@ -747,6 +749,7 @@ export async function writeGraph(
         calls: neo4j.int(r.calls.length),
         truncated: meta.truncated ?? false,
         skipped: neo4j.int(meta.skippedFiles ?? 0),
+        commit: meta.commit ?? null,
       },
     );
   } catch (err) {

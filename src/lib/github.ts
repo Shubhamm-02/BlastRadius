@@ -4,23 +4,18 @@ import zlib from "node:zlib";
 import { extract } from "tar-stream";
 import type { SourceFileInput } from "@/lib/analyze";
 import { ApiError } from "@/lib/http";
+import { parseRepoRef, type RepoRef } from "@/lib/repo-ref";
 
 const CODE_EXT = /\.(tsx?|jsx?|mts|cts|mjs|cjs)$/i;
 const CONFIG_RE = /(^|\/)(tsconfig|jsconfig)[^/]*\.json$/i;
 const SKIP_DIR =
   /(^|\/)(node_modules|dist|build|out|\.next|coverage|vendor|\.git)\//;
-const NAME_RE = /^[A-Za-z0-9_.-]{1,100}$/;
-const REF_RE = /^[A-Za-z0-9_./-]{1,250}$/;
 
 export const MAX_FILES = 2000;
 export const MAX_TOTAL_BYTES = 12_000_000; // ~12 MB of source
 const DEFAULT_MAX_REPO_MB = 250;
 
-export interface RepoRef {
-  owner: string;
-  repo: string;
-  ref?: string;
-}
+export type { RepoRef };
 
 /** What was kept vs. dropped while extracting, reported back to the client. */
 export interface FetchStats {
@@ -29,6 +24,7 @@ export interface FetchStats {
   skipped: number; // dropped by MAX_FILES / MAX_TOTAL_BYTES
   bytes: number; // bytes of source kept
   truncated: boolean;
+  commit?: string; // short sha from the tarball's top-level dir name
 }
 
 export type FetchProgress = (
@@ -36,39 +32,16 @@ export type FetchProgress = (
   detail: string,
 ) => void;
 
-/** Accepts "owner/repo", a full github.com URL, or an owner/repo/tree/branch URL. */
 export function parseRepoInput(input: string): RepoRef {
-  let s = input.trim();
-  s = s.replace(/^git\+/, "");
-  s = s.replace(/^https?:\/\/(www\.)?github\.com\//i, "");
-  s = s.replace(/\.git$/i, "");
-  s = s.replace(/\/+$/, "");
-
-  const parts = s.split("/").filter(Boolean);
-  if (parts.length < 2) {
+  const ref = parseRepoRef(input);
+  if (!ref) {
     throw new ApiError(
       "bad_request",
-      "Enter a repo as 'owner/repo' or a GitHub URL.",
+      "Enter a repo as owner/repo or a GitHub URL.",
       400,
     );
   }
-  const [owner, repo] = parts;
-  let ref: string | undefined;
-  if (parts[2] === "tree" && parts[3]) {
-    ref = parts.slice(3).join("/"); // branch names can contain slashes
-  }
-  if (
-    !NAME_RE.test(owner) ||
-    !NAME_RE.test(repo) ||
-    (ref !== undefined && (!REF_RE.test(ref) || ref.includes("..")))
-  ) {
-    throw new ApiError(
-      "bad_request",
-      "That doesn't look like a GitHub repo.",
-      400,
-    );
-  }
-  return { owner, repo, ref };
+  return ref;
 }
 
 function githubHeaders(): Record<string, string> {
@@ -116,12 +89,13 @@ function maxRepoMb(): number {
 export async function fetchRepoFiles(
   { owner, repo, ref }: RepoRef,
   onProgress?: FetchProgress,
+  signal?: AbortSignal,
 ): Promise<{ files: SourceFileInput[]; stats: FetchStats }> {
   const headers = githubHeaders();
   const base = `https://api.github.com/repos/${owner}/${repo}`;
 
   onProgress?.("fetch", `Checking ${owner}/${repo}`);
-  const meta = await fetch(base, { headers });
+  const meta = await fetch(base, { headers, signal });
   if (!meta.ok) throw githubError(meta.status, owner, repo);
   const info = (await meta.json()) as { size?: number };
   // `size` is in KB and includes git history, so it over-estimates the tarball.
@@ -140,18 +114,20 @@ export async function fetchRepoFiles(
     `Downloading ${owner}/${repo} (~${Math.max(1, Math.round(sizeMb))} MB)`,
   );
   const url = ref ? `${base}/tarball/${ref}` : `${base}/tarball`;
-  const res = await fetch(url, { headers, redirect: "follow" });
+  const res = await fetch(url, { headers, redirect: "follow", signal });
   if (!res.ok || !res.body) throw githubError(res.status, owner, repo);
 
   return extractCodeFiles(
     Readable.fromWeb(res.body as import("node:stream/web").ReadableStream),
     onProgress,
+    signal,
   );
 }
 
 async function extractCodeFiles(
   gz: Readable,
   onProgress?: FetchProgress,
+  signal?: AbortSignal,
 ): Promise<{ files: SourceFileInput[]; stats: FetchStats }> {
   const files: SourceFileInput[] = [];
   const stats: FetchStats = {
@@ -166,7 +142,9 @@ async function extractCodeFiles(
   const ex = extract();
   ex.on("entry", (header, stream, next) => {
     // Tarball entries are prefixed with a top-level "owner-repo-sha/" dir.
-    const rel = header.name.split("/").slice(1).join("/");
+    const [top, ...rest] = header.name.split("/");
+    const rel = rest.join("/");
+    stats.commit ??= /-([0-9a-f]{7,40})$/.exec(top)?.[1];
     const isCode = CODE_EXT.test(rel) && !rel.endsWith(".d.ts");
     const isConfig = CONFIG_RE.test(rel); // for path-alias resolution
     const wanted =
@@ -205,7 +183,9 @@ async function extractCodeFiles(
   });
 
   // tar-stream's extractor is a Writable; pipeline handles backpressure and errors.
-  await pipeline(gz, zlib.createGunzip(), ex as unknown as Writable);
+  await pipeline(gz, zlib.createGunzip(), ex as unknown as Writable, {
+    signal,
+  });
   onProgress?.(
     "extract",
     `Extracted ${stats.kept} files${stats.truncated ? `, skipped ${stats.skipped} over the limit` : ""}`,

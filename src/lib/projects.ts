@@ -17,6 +17,7 @@ export interface ProjectInfo {
   stats: ProjectStats;
   truncated: boolean;
   skippedFiles: number;
+  commit: string | null; // GitHub projects only
 }
 
 /** Per-project node labels, deleted children-first so the Project node goes last. */
@@ -82,6 +83,7 @@ export async function getProject(
     },
     truncated: p.truncated === true,
     skippedFiles: num(p.skippedFiles),
+    commit: typeof p.commit === "string" ? p.commit : null,
   };
 }
 
