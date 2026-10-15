@@ -1,59 +1,52 @@
-import { getDriver } from "@/lib/neo4j";
-import { explainImpact, type Affected } from "@/lib/explain";
+import { z } from "zod";
+import { explainImpact, getCachedExplanation } from "@/lib/explain";
 import { logEvent } from "@/lib/events";
+import { ApiError, handleRouteError, parseSearchParams } from "@/lib/http";
+import { impactQuerySchema, queryImpact } from "@/lib/impact";
+import { getDriver } from "@/lib/neo4j";
+import { enforceRateLimit, rateLimiters } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * The blast radius of a function. Add `explain=1` to include a (non-streamed)
+ * explanation; the UI streams it from /api/explain instead.
+ */
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const projectId = url.searchParams.get("projectId");
-  const id = url.searchParams.get("id");
-  const anonId = url.searchParams.get("anonId") ?? undefined;
-  if (!projectId || !id) {
-    return Response.json({ error: "missing projectId or id" }, { status: 400 });
-  }
-
-  const session = getDriver().session();
   try {
-    // Everything that transitively CALLS the target (up to 6 hops) is in the
-    // blast radius. This variable-length traversal is the graph-native core.
-    const res = await session.run(
-      `MATCH (t:Function { projectId: $pid, id: $id })
-       OPTIONAL MATCH (t)<-[:CALLS*1..6]-(a:Function { projectId: $pid })
-       RETURN t.name AS name,
-              collect(DISTINCT { id: a.id, name: a.name, file: a.file }) AS affected`,
-      { pid: projectId, id },
+    await enforceRateLimit(rateLimiters.impact, req);
+    const q = parseSearchParams(
+      impactQuerySchema.extend({ explain: z.enum(["0", "1"]).default("0") }),
+      req,
     );
 
-    const record = res.records[0];
-    if (!record) {
-      return Response.json({ error: "function not found" }, { status: 404 });
-    }
+    const driver = getDriver();
+    const impact = await queryImpact(driver, q);
+    if (!impact)
+      throw new ApiError(
+        "not_found",
+        "Function not found in this project.",
+        404,
+      );
 
-    const targetName = (record.get("name") as string) ?? id;
-    const affected: Affected[] = (record.get("affected") as Affected[]).filter(
-      (a) => a && a.id,
-    );
-
-    const explanation = await explainImpact(targetName, affected);
-
-    await logEvent(getDriver(), {
+    logEvent({
       type: "impact",
-      anonId,
-      functionId: id,
-      projectId,
+      anonId: q.anonId,
+      functionId: q.id,
+      projectId: q.projectId,
     });
 
-    return Response.json({
-      target: targetName,
-      affectedIds: affected.map((a) => a.id),
-      affected,
-      explanation,
-    });
+    const explanation =
+      q.explain === "1"
+        ? await explainImpact(driver, q.projectId, impact, {
+            cached: await getCachedExplanation(driver, q.projectId, impact),
+            signal: req.signal,
+          })
+        : undefined;
+
+    return Response.json({ ...impact, explanation });
   } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 });
-  } finally {
-    await session.close();
+    return handleRouteError(err, "api/impact");
   }
 }
