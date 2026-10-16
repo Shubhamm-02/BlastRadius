@@ -12,7 +12,8 @@ export const buttonVariants = cva(
         secondary:
           "border border-border bg-surface-2 text-text shadow-raised hover:border-border-strong hover:bg-surface-3",
         ghost: "text-text-muted hover:bg-surface-3 hover:text-text",
-        outline: "border border-border text-text hover:border-border-strong hover:bg-surface-2",
+        outline:
+          "border border-border text-text hover:border-border-strong hover:bg-surface-2",
         danger: "bg-danger text-danger-fg shadow-raised hover:bg-danger/90",
       },
       size: {
@@ -28,7 +29,8 @@ export const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }

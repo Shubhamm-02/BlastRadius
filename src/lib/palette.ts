@@ -22,7 +22,8 @@ export interface CanvasPalette {
 
 function readPalette(): CanvasPalette {
   const style = getComputedStyle(document.documentElement);
-  const channels = (name: string) => style.getPropertyValue(`--${name}`).trim().split(/\s+/).join(", ");
+  const channels = (name: string) =>
+    style.getPropertyValue(`--${name}`).trim().split(/\s+/).join(", ");
   const rgb = (name: string) => `rgb(${channels(name)})`;
   return {
     bg: rgb("bg"),

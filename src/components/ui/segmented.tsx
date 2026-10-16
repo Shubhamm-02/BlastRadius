@@ -33,7 +33,12 @@ export function Segmented<T extends string>({
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const onKeyDown = (e: KeyboardEvent, index: number) => {
-    const delta = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    const delta =
+      e.key === "ArrowRight" || e.key === "ArrowDown"
+        ? 1
+        : e.key === "ArrowLeft" || e.key === "ArrowUp"
+          ? -1
+          : 0;
     if (!delta) return;
     e.preventDefault();
     const next = (index + delta + options.length) % options.length;
@@ -45,7 +50,10 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={cn("inline-flex items-center gap-0.5 rounded-md border border-border bg-surface-1 p-0.5 shadow-raised", className)}
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-md border border-border bg-surface-1 p-0.5 shadow-raised",
+        className,
+      )}
     >
       {options.map((o, i) => {
         const active = o.value === value;
@@ -74,7 +82,9 @@ export function Segmented<T extends string>({
                 className="absolute inset-0 rounded-sm border border-border-strong bg-surface-3 shadow-raised"
               />
             )}
-            <span className="relative inline-flex items-center gap-1.5">{o.label}</span>
+            <span className="relative inline-flex items-center gap-1.5">
+              {o.label}
+            </span>
           </button>
         );
       })}

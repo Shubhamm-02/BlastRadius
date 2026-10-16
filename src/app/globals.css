@@ -41,10 +41,12 @@
     --cluster-7: 92 140 170;
     --cluster-8: 140 140 110;
 
-    --shadow-raised: inset 0 1px 0 0 rgb(255 255 255 / 0.7),
-      0 1px 2px rgb(16 24 40 / 0.06), 0 6px 16px -8px rgb(16 24 40 / 0.12);
-    --shadow-overlay: 0 1px 2px rgb(16 24 40 / 0.06),
-      0 12px 32px -8px rgb(16 24 40 / 0.18), 0 32px 64px -24px rgb(16 24 40 / 0.16);
+    --shadow-raised:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.7), 0 1px 2px rgb(16 24 40 / 0.06),
+      0 6px 16px -8px rgb(16 24 40 / 0.12);
+    --shadow-overlay:
+      0 1px 2px rgb(16 24 40 / 0.06), 0 12px 32px -8px rgb(16 24 40 / 0.18),
+      0 32px 64px -24px rgb(16 24 40 / 0.16);
     --grain-opacity: 0.025;
 
     color-scheme: light;
@@ -83,10 +85,12 @@
     --cluster-7: 80 122 150;
     --cluster-8: 120 120 96;
 
-    --shadow-raised: inset 0 1px 0 0 rgb(255 255 255 / 0.045),
-      0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -10px rgb(0 0 0 / 0.55);
-    --shadow-overlay: inset 0 1px 0 0 rgb(255 255 255 / 0.05),
-      0 2px 4px rgb(0 0 0 / 0.3), 0 24px 56px -12px rgb(0 0 0 / 0.65);
+    --shadow-raised:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.045), 0 1px 2px rgb(0 0 0 / 0.4),
+      0 8px 24px -10px rgb(0 0 0 / 0.55);
+    --shadow-overlay:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.05), 0 2px 4px rgb(0 0 0 / 0.3),
+      0 24px 56px -12px rgb(0 0 0 / 0.65);
     --grain-opacity: 0.035;
 
     color-scheme: dark;
@@ -128,7 +132,9 @@
   code,
   kbd,
   .font-mono {
-    font-feature-settings: "zero" 0, "ss01" 0;
+    font-feature-settings:
+      "zero" 0,
+      "ss01" 0;
   }
 }
 

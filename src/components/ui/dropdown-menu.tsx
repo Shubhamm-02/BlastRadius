@@ -1,7 +1,11 @@
 "use client";
 
 import * as Menu from "@radix-ui/react-dropdown-menu";
-import { forwardRef, type ComponentPropsWithoutRef, type ElementRef } from "react";
+import {
+  forwardRef,
+  type ComponentPropsWithoutRef,
+  type ElementRef,
+} from "react";
 import { cn } from "@/lib/cn";
 
 export const DropdownMenu = Menu.Root;
@@ -46,7 +50,11 @@ export const DropdownMenuLabel = forwardRef<
   ElementRef<typeof Menu.Label>,
   ComponentPropsWithoutRef<typeof Menu.Label>
 >(({ className, ...props }, ref) => (
-  <Menu.Label ref={ref} className={cn("px-2 py-1.5 text-xs font-medium text-text-dim", className)} {...props} />
+  <Menu.Label
+    ref={ref}
+    className={cn("px-2 py-1.5 text-xs font-medium text-text-dim", className)}
+    {...props}
+  />
 ));
 DropdownMenuLabel.displayName = "DropdownMenuLabel";
 
@@ -54,6 +62,10 @@ export const DropdownMenuSeparator = forwardRef<
   ElementRef<typeof Menu.Separator>,
   ComponentPropsWithoutRef<typeof Menu.Separator>
 >(({ className, ...props }, ref) => (
-  <Menu.Separator ref={ref} className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />
+  <Menu.Separator
+    ref={ref}
+    className={cn("-mx-1 my-1 h-px bg-border", className)}
+    {...props}
+  />
 ));
 DropdownMenuSeparator.displayName = "DropdownMenuSeparator";

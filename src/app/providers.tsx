@@ -8,7 +8,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
       {/* "user": transforms and layout animations are skipped under prefers-reduced-motion; opacity still fades. */}
       <MotionConfig reducedMotion="user">
         <TooltipProvider delayDuration={300} skipDelayDuration={100}>
