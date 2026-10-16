@@ -23,6 +23,8 @@ interface WorkspaceState {
   depth: number;
   viewMode: ViewMode;
   panels: Record<PanelId, boolean>;
+  /** Bumped by revealPanel; the shell opens that panel whatever its form (dock, drawer, sheet). */
+  reveal: { panel: PanelId; seq: number } | null;
   paletteOpen: boolean;
   shortcutsOpen: boolean;
   /** Most recent first, per project; persisted by WorkspaceEffects. */
@@ -37,6 +39,7 @@ interface WorkspaceState {
   setViewMode(mode: ViewMode): void;
   setPanel(panel: PanelId, open: boolean): void;
   togglePanel(panel: PanelId): void;
+  revealPanel(panel: PanelId): void;
   setPaletteOpen(open: boolean): void;
   setShortcutsOpen(open: boolean): void;
   setRecent(ids: string[]): void;
@@ -53,6 +56,7 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
   depth: DEPTH_DEFAULT,
   viewMode: "full",
   panels: { explorer: true, inspector: true },
+  reveal: null,
   paletteOpen: false,
   shortcutsOpen: false,
   recent: [],
@@ -68,16 +72,25 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
     set((s) => ({
       selectedId,
       recent: selectedId
-        ? [selectedId, ...s.recent.filter((id) => id !== selectedId)].slice(0, RECENT_MAX)
+        ? [selectedId, ...s.recent.filter((id) => id !== selectedId)].slice(
+            0,
+            RECENT_MAX,
+          )
         : s.recent,
     })),
   hover: (hoveredId) => set({ hoveredId }),
   setDirection: (direction) => set({ direction }),
   setDepth: (depth) => set({ depth }),
   setViewMode: (viewMode) => set({ viewMode }),
-  setPanel: (panel, open) => set((s) => ({ panels: { ...s.panels, [panel]: open } })),
+  setPanel: (panel, open) =>
+    set((s) => ({ panels: { ...s.panels, [panel]: open } })),
   togglePanel: (panel) =>
     set((s) => ({ panels: { ...s.panels, [panel]: !s.panels[panel] } })),
+  revealPanel: (panel) =>
+    set((s) => ({
+      panels: s.panels[panel] ? s.panels : { ...s.panels, [panel]: true },
+      reveal: { panel, seq: (s.reveal?.seq ?? 0) + 1 },
+    })),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
   setRecent: (recent) => set({ recent }),

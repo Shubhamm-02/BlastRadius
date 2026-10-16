@@ -1,19 +1,41 @@
 "use client";
 
 import { create } from "zustand";
-import { RequestError, getAnonId, isAbortError, messageOf, readJson, readNdjson } from "@/lib/client";
-import type { IngestResult, IngestStage, IngestStreamEvent } from "@/lib/ingest";
-import { entriesFromFileList, readUpload, type UploadEntry } from "@/lib/upload";
+import {
+  RequestError,
+  getAnonId,
+  isAbortError,
+  messageOf,
+  readJson,
+  readNdjson,
+} from "@/lib/client";
+import type {
+  IngestResult,
+  IngestStage,
+  IngestStreamEvent,
+} from "@/lib/ingest";
+import {
+  entriesFromFileList,
+  readUpload,
+  type UploadEntry,
+} from "@/lib/upload";
 import { useWorkspace } from "./workspace";
 
-export type IngestPhase = "idle" | "preparing" | "running" | "done" | "error" | "cancelled";
+export type IngestPhase =
+  "idle" | "preparing" | "running" | "done" | "error" | "cancelled";
 
 export type IngestSource =
   | { kind: "github"; repo: string }
   | { kind: "upload"; name: string; fileCount: number };
 
 /** Steps shown in the progress card, in order. Uploads skip "fetch". */
-export const INGEST_STEPS: Exclude<IngestStage, "done">[] = ["fetch", "extract", "parse", "resolve", "write"];
+export const INGEST_STEPS: Exclude<IngestStage, "done">[] = [
+  "fetch",
+  "extract",
+  "parse",
+  "resolve",
+  "write",
+];
 
 interface IngestState {
   phase: IngestPhase;
@@ -38,7 +60,8 @@ interface IngestState {
 
 let inflight: AbortController | null = null;
 
-const busy = (phase: IngestPhase) => phase === "preparing" || phase === "running";
+const busy = (phase: IngestPhase) =>
+  phase === "preparing" || phase === "running";
 
 export const useIngest = create<IngestState>()((set, get) => {
   async function run(payload: object, source: IngestSource, warning = "") {
@@ -61,16 +84,22 @@ export const useIngest = create<IngestState>()((set, get) => {
     try {
       const res = await fetch("/api/ingest", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/x-ndjson",
+        },
         body: JSON.stringify({ ...payload, anonId: getAnonId() }),
         signal: ac.signal,
       });
 
       let result: IngestResult | undefined;
-      const streamed = res.headers.get("content-type")?.includes("application/x-ndjson");
+      const streamed = res.headers
+        .get("content-type")
+        ?.includes("application/x-ndjson");
       if (res.ok && streamed && res.body) {
         await readNdjson<IngestStreamEvent>(res.body, (ev) => {
-          if (ev.stage === "error") throw new RequestError(ev.error.message, ev.error.code, 500);
+          if (ev.stage === "error")
+            throw new RequestError(ev.error.message, ev.error.code, 500);
           if (ev.stage === "done") {
             result = ev.result;
             return;
@@ -84,7 +113,8 @@ export const useIngest = create<IngestState>()((set, get) => {
       } else {
         result = await readJson<IngestResult>(res);
       }
-      if (!result) throw new Error("The analysis ended before finishing. Try again.");
+      if (!result)
+        throw new Error("The analysis ended before finishing. Try again.");
 
       const done = result;
       set({
@@ -126,11 +156,27 @@ export const useIngest = create<IngestState>()((set, get) => {
     async uploadEntries(input) {
       if (busy(get().phase)) return;
       const entries = Array.isArray(input) ? input : entriesFromFileList(input);
-      set({ phase: "preparing", source: null, error: "", warning: "", startedAt: Date.now(), progress: 0, details: {} });
+      set({
+        phase: "preparing",
+        source: null,
+        stage: null,
+        progress: 0,
+        details: {},
+        startedAt: Date.now(),
+        finishedAt: null,
+        error: "",
+        warning: "",
+        result: null,
+      });
       try {
         const upload = await readUpload(entries);
+        if (get().phase !== "preparing") return; // cancelled while reading
         if (upload.files.length === 0) {
-          set({ phase: "error", error: "No TypeScript or JavaScript files in that folder.", finishedAt: Date.now() });
+          set({
+            phase: "error",
+            error: "No TypeScript or JavaScript files in that folder.",
+            finishedAt: Date.now(),
+          });
           return;
         }
         await run(
@@ -153,7 +199,17 @@ export const useIngest = create<IngestState>()((set, get) => {
 
     reset() {
       if (busy(get().phase)) return;
-      set({ phase: "idle", source: null, stage: null, progress: 0, details: {}, startedAt: null, finishedAt: null, error: "", result: null });
+      set({
+        phase: "idle",
+        source: null,
+        stage: null,
+        progress: 0,
+        details: {},
+        startedAt: null,
+        finishedAt: null,
+        error: "",
+        result: null,
+      });
     },
   };
 });

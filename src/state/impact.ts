@@ -1,7 +1,14 @@
 "use client";
 
 import { create } from "zustand";
-import { fetchJson, getAnonId, isAbortError, messageOf, readJson, readText } from "@/lib/client";
+import {
+  fetchJson,
+  getAnonId,
+  isAbortError,
+  messageOf,
+  readJson,
+  readText,
+} from "@/lib/client";
 import type { Direction, ImpactResult } from "@/lib/impact";
 
 export interface ImpactQuery {
@@ -34,16 +41,23 @@ interface ImpactState {
 let inflight: AbortController | null = null;
 let summaryInflight: AbortController | null = null;
 
-const hopsOf = (r: ImpactResult | null) => new Map(r?.affected.map((a) => [a.id, a.hops]) ?? []);
+const hopsOf = (r: ImpactResult | null) =>
+  new Map(r?.affected.map((a) => [a.id, a.hops]) ?? []);
 
 const sameTarget = (a: ImpactQuery | null, b: ImpactQuery) =>
-  !!a && a.projectId === b.projectId && a.id === b.id && a.direction === b.direction;
+  !!a &&
+  a.projectId === b.projectId &&
+  a.id === b.id &&
+  a.direction === b.direction;
 
 /**
  * Narrow an existing result to a smaller depth so the depth slider responds
  * instantly; the server result replaces it when it lands.
  */
-function previewAtDepth(prev: ImpactResult, depth: number): ImpactResult | null {
+function previewAtDepth(
+  prev: ImpactResult,
+  depth: number,
+): ImpactResult | null {
   if (prev.truncated || depth > prev.depth) return null;
   const affected = prev.affected.filter((a) => a.hops <= depth);
   return { ...prev, depth, affected, total: affected.length };
@@ -63,18 +77,32 @@ export const useImpact = create<ImpactState>()((set, get) => ({
     inflight?.abort();
     summaryInflight?.abort();
     if (!query) {
-      set({ query: null, status: "idle", error: "", result: null, hopById: new Map(), summary: "", summaryStatus: "idle", summarySource: null });
+      set({
+        query: null,
+        status: "idle",
+        error: "",
+        result: null,
+        hopById: new Map(),
+        summary: "",
+        summaryStatus: "idle",
+        summarySource: null,
+      });
       return;
     }
 
     const prev = get();
-    const preview = sameTarget(prev.query, query) && prev.result ? previewAtDepth(prev.result, query.depth) : null;
+    // Same target at a new depth: show the narrowed (or, when deepening, the
+    // previous) result while the server answers, instead of blanking the view.
+    const shown =
+      sameTarget(prev.query, query) && prev.result
+        ? (previewAtDepth(prev.result, query.depth) ?? prev.result)
+        : null;
     set({
       query,
       status: "loading",
       error: "",
-      result: preview,
-      hopById: hopsOf(preview),
+      result: shown,
+      hopById: hopsOf(shown),
       summary: "",
       summaryStatus: "idle",
       summarySource: null,
@@ -88,7 +116,10 @@ export const useImpact = create<ImpactState>()((set, get) => ({
       depth: String(query.depth),
       direction: query.direction,
     });
-    fetchJson<ImpactResult>(`/api/impact?${qs}&anonId=${encodeURIComponent(getAnonId())}`, { signal: ac.signal })
+    fetchJson<ImpactResult>(
+      `/api/impact?${qs}&anonId=${encodeURIComponent(getAnonId())}`,
+      { signal: ac.signal },
+    )
       .then((result) => {
         if (ac.signal.aborted) return;
         set({ status: "ready", result, hopById: hopsOf(result) });
@@ -127,11 +158,16 @@ export const useImpact = create<ImpactState>()((set, get) => ({
     (async () => {
       const res = await fetch(`/api/explain?${qs}`, { signal: ac.signal });
       if (!res.ok || !res.body) await readJson(res); // throws the API's message
-      set({ summarySource: res.headers.get("x-explanation-source") as SummarySource | null });
+      set({
+        summarySource: res.headers.get(
+          "x-explanation-source",
+        ) as SummarySource | null,
+      });
       await readText(res.body!, (chunk) => {
         if (!ac.signal.aborted) set((s) => ({ summary: s.summary + chunk }));
       });
-      if (!ac.signal.aborted) set((s) => ({ summary: s.summary.trim(), summaryStatus: "done" }));
+      if (!ac.signal.aborted)
+        set((s) => ({ summary: s.summary.trim(), summaryStatus: "done" }));
     })().catch((e) => {
       if (isAbortError(e) || ac.signal.aborted) return;
       set({ summaryStatus: "error", summary: messageOf(e) });

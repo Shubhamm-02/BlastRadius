@@ -13,10 +13,28 @@ function writeUrl(projectId: string | null, fn: string | null) {
   else url.searchParams.delete("projectId");
   if (fn) url.searchParams.set("fn", fn);
   else url.searchParams.delete("fn");
-  if (url.href !== window.location.href) window.history.replaceState(null, "", url);
+  if (url.href !== window.location.href)
+    window.history.replaceState(null, "", url);
 }
 
 const recentKey = (projectId: string) => `br:recent:${projectId}`;
+
+/** Merge recents saved for this project behind any made this session. */
+function restoreRecent(projectId: string | null) {
+  if (!projectId) return;
+  let saved: unknown;
+  try {
+    saved = JSON.parse(localStorage.getItem(recentKey(projectId)) ?? "[]");
+  } catch {
+    return; // private mode or a corrupt entry; recents are optional
+  }
+  if (!Array.isArray(saved) || saved.length === 0) return;
+  const ws = useWorkspace.getState();
+  const merged = [
+    ...new Set([...ws.recent, ...saved.filter((id) => typeof id === "string")]),
+  ];
+  ws.setRecent(merged.slice(0, 8));
+}
 
 /**
  * Wires workspace state to the URL (?projectId=&fn=), loads project data,
@@ -35,52 +53,60 @@ export function WorkspaceEffects() {
 
   useEffect(() => {
     let depthTimer: ReturnType<typeof setTimeout> | undefined;
-    let prev = useWorkspace.getState();
 
-    const unsubscribe = useWorkspace.subscribe((s) => {
+    // zustand passes the state before each notification. A closure-held
+    // "previous" would go stale when a listener sets state re-entrantly
+    // (restoreRecent does), replaying the project change in a loop.
+    const unsubscribe = useWorkspace.subscribe((s, prev) => {
       if (s.projectId !== prev.projectId) {
         useProjectData.getState().load(s.projectId);
-        if (s.projectId) {
-          try {
-            const saved = JSON.parse(localStorage.getItem(recentKey(s.projectId)) ?? "[]");
-            if (Array.isArray(saved) && s.recent.length === 0) s.setRecent(saved.slice(0, 8));
-          } catch {
-            // private mode or corrupt entry; recents are optional
-          }
-        }
+        restoreRecent(s.projectId);
       }
       if (s.projectId !== prev.projectId || s.selectedId !== prev.selectedId) {
         writeUrl(s.projectId, s.selectedId);
       }
       if (s.recent !== prev.recent && s.projectId) {
         try {
-          localStorage.setItem(recentKey(s.projectId), JSON.stringify(s.recent));
+          localStorage.setItem(
+            recentKey(s.projectId),
+            JSON.stringify(s.recent),
+          );
         } catch {
-          // optional
+          // private mode; recents are optional
         }
       }
 
       const targetChanged =
-        s.projectId !== prev.projectId || s.selectedId !== prev.selectedId || s.direction !== prev.direction;
+        s.projectId !== prev.projectId ||
+        s.selectedId !== prev.selectedId ||
+        s.direction !== prev.direction;
       if (targetChanged || s.depth !== prev.depth) {
         clearTimeout(depthTimer);
         const query =
           s.projectId && s.selectedId
-            ? { projectId: s.projectId, id: s.selectedId, depth: s.depth, direction: s.direction }
+            ? {
+                projectId: s.projectId,
+                id: s.selectedId,
+                depth: s.depth,
+                direction: s.direction,
+              }
             : null;
         if (targetChanged) {
           useImpact.getState().run(query);
         } else {
           useImpact.getState().previewDepth(s.depth);
-          depthTimer = setTimeout(() => useImpact.getState().run(query), DEPTH_DEBOUNCE_MS);
+          depthTimer = setTimeout(
+            () => useImpact.getState().run(query),
+            DEPTH_DEBOUNCE_MS,
+          );
         }
       }
-      prev = s;
     });
 
     const initial = useWorkspace.getState();
     if (initial.projectId) {
       useProjectData.getState().load(initial.projectId);
+      restoreRecent(initial.projectId);
       if (initial.selectedId) {
         useImpact.getState().run({
           projectId: initial.projectId,

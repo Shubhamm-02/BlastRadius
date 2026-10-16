@@ -7,6 +7,7 @@ import { fetchRepoFiles, parseRepoInput } from "@/lib/github";
 import { ApiError } from "@/lib/http";
 import type { ImpactResult } from "@/lib/impact";
 import { MemorySlidingWindow } from "@/lib/rateLimit";
+import { formatRepoRef, parseRepoRef } from "@/lib/repo-ref";
 import { safeEqual } from "@/lib/secrets";
 
 afterEach(() => {
@@ -64,7 +65,9 @@ describe("parseRepoInput", () => {
   });
   it("rejects junk with a safe ApiError", () => {
     expect(() => parseRepoInput("nope")).toThrow(ApiError);
-    expect(() => parseRepoInput("a/b?c")).toThrow(/doesn't look like/);
+    expect(() => parseRepoInput("a/b?c")).toThrow(
+      /Enter a repo as owner\/repo/,
+    );
     expect(() => parseRepoInput("a/b/tree/../../etc")).toThrow(ApiError);
   });
 });
@@ -229,5 +232,20 @@ describe("explainImpact", () => {
       await explainImpact(driver, "p", impact, { cached: "from cache" }),
     ).toBe("from cache");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("parseRepoRef", () => {
+  it("round-trips formatRepoRef output, including refs with slashes", () => {
+    for (const ref of [undefined, "main", "feat/x"]) {
+      const r = { owner: "pmndrs", repo: "zustand", ref };
+      expect(parseRepoRef(formatRepoRef(r))).toEqual(r);
+    }
+    expect(parseRepoRef("https://github.com/a/b/tree/v1")).toEqual({
+      owner: "a",
+      repo: "b",
+      ref: "v1",
+    });
+    expect(parseRepoRef("a/b@../x")).toBeNull();
   });
 });

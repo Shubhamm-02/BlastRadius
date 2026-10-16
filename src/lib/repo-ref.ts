@@ -8,7 +8,8 @@ const NAME_RE = /^[A-Za-z0-9_.-]{1,100}$/;
 const REF_RE = /^[A-Za-z0-9_./-]{1,250}$/;
 
 /**
- * Accepts "owner/repo", a github.com URL, or an owner/repo/tree/branch URL.
+ * Accepts "owner/repo", "owner/repo@ref", a github.com URL, or an
+ * owner/repo/tree/branch URL.
  * Returns null for anything else. Safe to import from client components.
  */
 export function parseRepoRef(input: string): RepoRef | null {
@@ -19,11 +20,16 @@ export function parseRepoRef(input: string): RepoRef | null {
     .replace(/\.git$/i, "")
     .replace(/\/+$/, "");
 
-  const parts = s.split("/").filter(Boolean);
+  const at = /^([^/@]+\/[^/@]+)@(.+)$/.exec(s);
+  const parts = (at ? at[1] : s).split("/").filter(Boolean);
   if (parts.length < 2) return null;
   const [owner, repo] = parts;
   // Branch names can contain slashes.
-  const ref = parts[2] === "tree" && parts[3] ? parts.slice(3).join("/") : undefined;
+  const ref = at
+    ? at[2]
+    : parts[2] === "tree" && parts[3]
+      ? parts.slice(3).join("/")
+      : undefined;
   if (
     !NAME_RE.test(owner) ||
     !NAME_RE.test(repo) ||

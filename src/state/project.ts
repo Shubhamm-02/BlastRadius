@@ -32,7 +32,14 @@ export const useProjectData = create<ProjectState>()((set, get) => ({
   load(projectId) {
     inflight?.abort();
     lastId = projectId;
-    set({ status: projectId ? "loading" : "idle", error: "", graph: EMPTY, info: null, nodeById: new Map(), degree: new Map() });
+    set({
+      status: projectId ? "loading" : "idle",
+      error: "",
+      graph: EMPTY,
+      info: null,
+      nodeById: new Map(),
+      degree: new Map(),
+    });
     if (!projectId) return;
 
     const ac = new AbortController();
@@ -41,7 +48,9 @@ export const useProjectData = create<ProjectState>()((set, get) => ({
     Promise.all([
       fetchJson<GraphData>(`/api/graph?projectId=${q}`, { signal: ac.signal }),
       // Metadata is nice-to-have; the graph is what matters.
-      fetchJson<ProjectInfo>(`/api/project?projectId=${q}`, { signal: ac.signal }).catch((e) => {
+      fetchJson<ProjectInfo>(`/api/project?projectId=${q}`, {
+        signal: ac.signal,
+      }).catch((e) => {
         if (isAbortError(e)) throw e;
         return null;
       }),
