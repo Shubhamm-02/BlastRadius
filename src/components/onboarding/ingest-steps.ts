@@ -5,7 +5,7 @@ import {
   type IngestSource,
 } from "@/state/ingest";
 
-export type StepId = "read" | Exclude<IngestStage, "done"> | "done";
+type StepId = "read" | Exclude<IngestStage, "done"> | "done";
 export type StepState = "pending" | "active" | "done" | "failed" | "stopped";
 
 export interface IngestStep {

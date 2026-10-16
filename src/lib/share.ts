@@ -2,10 +2,9 @@
 
 import { toast } from "sonner";
 
-/** The current page URL; carries ?projectId= and ?fn= when set. */
-export function shareUrl(): string {
-  return window.location.href;
-}
+/** The page URL carries ?projectId= and ?fn=, so it reopens the same view. */
+export const copyShareLink = () =>
+  copyText(window.location.href, "Link copied");
 
 export async function copyText(text: string, success: string): Promise<void> {
   try {

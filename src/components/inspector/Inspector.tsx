@@ -1,10 +1,11 @@
 "use client";
 
+import { plural } from "@/lib/format";
 import { RotateCw } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
+import { ShortcutKeys } from "@/components/palette/ShortcutKeys";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/cn";
 import type { ImpactResult } from "@/lib/impact";
 import { DURATION, ease } from "@/lib/motion";
@@ -12,27 +13,12 @@ import { useImpact } from "@/state/impact";
 import { useProjectData } from "@/state/project";
 import { useWorkspace } from "@/state/workspace";
 import { AffectedList, AffectedListSkeleton } from "./AffectedList";
-import {
-  affectedNoun,
-  fileCount,
-  plural,
-  useBlastRadius,
-  type BlastRadius,
-} from "./blast-radius";
+import { useBlastRadius, type BlastRadius } from "./blast-radius";
 import { ImpactStats, ImpactStatsSkeleton } from "./ImpactStats";
 import { SummaryCard } from "./SummaryCard";
 import { TargetHeader, TargetHeaderSkeleton } from "./TargetHeader";
 
-function useModKey() {
-  const [mod, setMod] = useState("⌘");
-  useEffect(() => {
-    if (!/Mac|iPhone|iPad/.test(navigator.userAgent)) setMod("Ctrl");
-  }, []);
-  return mod;
-}
-
 function NoSelection() {
-  const mod = useModKey();
   return (
     <div className="flex flex-1 flex-col justify-center gap-5 px-6 py-10">
       <div className="flex flex-col gap-1">
@@ -45,14 +31,11 @@ function NoSelection() {
       </div>
       <ul className="flex flex-col gap-2 text-xs text-text-dim">
         <li className="flex items-center gap-2">
-          <span className="flex gap-0.5">
-            <Kbd>{mod}</Kbd>
-            <Kbd>K</Kbd>
-          </span>
+          <ShortcutKeys id="palette" className="gap-0.5" />
           Search functions
         </li>
         <li className="flex items-center gap-2">
-          <Kbd>/</Kbd>
+          <ShortcutKeys id="search" />
           Filter the explorer
         </li>
       </ul>
@@ -152,21 +135,6 @@ function TargetInspector({ id }: { id: string }) {
   );
 }
 
-/** Polite announcement when a result lands; lives outside the cross-fade so it persists. */
-function ImpactAnnouncer() {
-  const result = useImpact((s) => (s.status === "ready" ? s.result : null));
-  const message = useMemo(() => {
-    if (!result) return "";
-    const files = new Set(result.affected.map((fn) => fn.file)).size;
-    return `${result.total} ${affectedNoun(result.direction, result.total)} across ${fileCount(files, result.truncated)}`;
-  }, [result]);
-  return (
-    <p aria-live="polite" className="sr-only">
-      {message}
-    </p>
-  );
-}
-
 export function Inspector() {
   const selectedId = useWorkspace((s) => s.selectedId);
 
@@ -176,7 +144,6 @@ export function Inspector() {
       aria-label="Inspector"
       className="flex h-full min-h-0 w-full flex-col"
     >
-      <ImpactAnnouncer />
       {/* Stacking both panels in one grid cell gives a true cross-fade while
           keeping intrinsic height, which a bottom sheet needs. */}
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)]">

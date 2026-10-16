@@ -20,7 +20,9 @@ import { useImpact } from "@/state/impact";
 import { useProjectData } from "@/state/project";
 import { useWorkspace } from "@/state/workspace";
 import { FunctionRow, ROW_HEIGHT, optionId } from "./FunctionRow";
-import { buildFunctionIndex, normalizeQuery, searchFunctions } from "./search";
+import { tokenize } from "@/lib/fuzzy";
+import type { GNode } from "@/lib/graph-types";
+import { rankFunctions, searchIndex } from "@/lib/function-search";
 
 const LISTBOX_ID = "explorer-listbox";
 const HEADING_ID = "explorer-heading";
@@ -28,6 +30,11 @@ const LIST_PADDING = 6;
 const PAGE_ROWS = 10;
 
 const formatCount = new Intl.NumberFormat("en-US").format;
+
+const byNameThenFile = (a: GNode, b: GNode) =>
+  a.name.localeCompare(b.name) ||
+  a.file.localeCompare(b.file) ||
+  a.line - b.line;
 
 const functionCount = (n: number) =>
   `${formatCount(n)} ${n === 1 ? "function" : "functions"}`;
@@ -52,11 +59,16 @@ function FunctionExplorer({ hasProject }: { hasProject: boolean }) {
   const revealedId = useRef<string | null>(null);
   const listHoverId = useRef<string | null>(null);
 
-  const searchQuery = useDeferredValue(normalizeQuery(query));
-  const functionIndex = useMemo(() => buildFunctionIndex(nodes), [nodes]);
+  const searchQuery = useDeferredValue(query.trim().toLowerCase());
+  // Same ranking as the command palette, uncapped; alphabetical when empty.
+  const alphabetical = useMemo(() => [...nodes].sort(byNameThenFile), [nodes]);
   const matches = useMemo(
-    () => searchFunctions(functionIndex, searchQuery),
-    [functionIndex, searchQuery],
+    () =>
+      searchQuery
+        ? rankFunctions(searchIndex(nodes), tokenize(searchQuery), Infinity)
+            .items
+        : alphabetical,
+    [nodes, alphabetical, searchQuery],
   );
   const selectedIndex = useMemo(
     () => (selectedId ? matches.findIndex((n) => n.id === selectedId) : -1),

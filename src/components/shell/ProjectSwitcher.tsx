@@ -1,5 +1,6 @@
 "use client";
 
+import { relativeTime } from "@/lib/format";
 import {
   ChevronsUpDown,
   FolderClosed,
@@ -23,13 +24,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectSource } from "@/lib/projects";
-import { copyText, shareUrl } from "@/lib/share";
+import { copyShareLink } from "@/lib/share";
 import { SPRING } from "@/lib/motion";
-import { useIngest } from "@/state/ingest";
+import { startNewAnalysis, useIngest } from "@/state/ingest";
 import { useProjectData } from "@/state/project";
 import { useWorkspace } from "@/state/workspace";
 import {
-  openedAgo,
   readRecentProjects,
   rememberProject,
   type RecentProject,
@@ -58,11 +58,6 @@ function SourceIcon({ source }: { source: ProjectSource }) {
 
 const openProject = (id: string) => useWorkspace.getState().setProject(id);
 
-function analyzeAnother() {
-  useIngest.getState().reset();
-  useWorkspace.getState().setProject(null);
-}
-
 function RecentItems({ projects }: { projects: RecentProject[] }) {
   if (projects.length === 0) return null;
   return (
@@ -78,7 +73,7 @@ function RecentItems({ projects }: { projects: RecentProject[] }) {
             {p.slug}
           </span>
           <span className="shrink-0 text-xs tabular-nums text-text-dim">
-            {openedAgo(p.openedAt)}
+            {relativeTime(p.openedAt, Date.now())}
           </span>
         </DropdownMenuItem>
       ))}
@@ -246,11 +241,11 @@ export function ProjectSwitcher({
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuItem onSelect={analyzeAnother}>
+        <DropdownMenuItem onSelect={startNewAnalysis}>
           <Plus />
           Analyze another repo
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => copyText(shareUrl(), "Link copied")}>
+        <DropdownMenuItem onSelect={copyShareLink}>
           <Link2 />
           Copy share link
         </DropdownMenuItem>

@@ -12,11 +12,19 @@ import {
 
 const noSubscribe = () => () => {};
 
-/** "⌘" on Apple platforms, "Ctrl" elsewhere. The server render assumes Ctrl. */
-export function useModLabel(): string {
-  const mac = useSyncExternalStore(noSubscribe, isMac, () => false);
-  return mac ? "⌘" : "Ctrl";
+/**
+ * "⌘" on Apple platforms, "Ctrl" elsewhere, null during the server render and
+ * hydration so callers can hide the hint instead of flashing the wrong key.
+ */
+export function useModKey(): "⌘" | "Ctrl" | null {
+  return useSyncExternalStore(
+    noSubscribe,
+    () => (isMac() ? "⌘" : "Ctrl"),
+    () => null,
+  );
 }
+
+export const useModLabel = (): string => useModKey() ?? "Ctrl";
 
 export function KeyCombo({
   keys,

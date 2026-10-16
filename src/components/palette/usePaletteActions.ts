@@ -5,6 +5,7 @@ import {
   ArrowUpFromDot,
   Focus,
   Keyboard,
+  KeyboardOff,
   Link,
   Moon,
   Network,
@@ -16,8 +17,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { copyText, shareUrl } from "@/lib/share";
-import { useIngest } from "@/state/ingest";
+import { copyShareLink } from "@/lib/share";
+import { startNewAnalysis } from "@/state/ingest";
+import { useBreakpoint } from "@/components/shell/useBreakpoint";
 import { useWorkspace } from "@/state/workspace";
 import {
   fitGraph,
@@ -25,7 +27,9 @@ import {
   toggleExplorer,
   toggleInspector,
   toggleShortcuts,
+  toggleSingleKeyShortcuts,
   toggleViewMode,
+  useSingleKeyShortcuts,
   type ShortcutId,
 } from "./shortcuts";
 
@@ -45,7 +49,11 @@ export function usePaletteActions(): PaletteAction[] {
   const direction = useWorkspace((s) => s.direction);
   const explorerOpen = useWorkspace((s) => s.panels.explorer);
   const inspectorOpen = useWorkspace((s) => s.panels.inspector);
+  // Below 1280px panels are drawers whose state the shell owns, so the docked
+  // flags can't say whether "show" or "hide" is next.
+  const docked = useBreakpoint() === "desktop";
   const canFit = useWorkspace((s) => s.graphControls !== null);
+  const singleKey = useSingleKeyShortcuts((s) => s.on);
   const { resolvedTheme, setTheme } = useTheme();
   const dark = resolvedTheme === "dark";
 
@@ -84,7 +92,11 @@ export function usePaletteActions(): PaletteAction[] {
     actions.push(
       {
         id: "explorer",
-        label: explorerOpen ? "Hide explorer" : "Show explorer",
+        label: !docked
+          ? "Toggle explorer"
+          : explorerOpen
+            ? "Hide explorer"
+            : "Show explorer",
         icon: PanelLeft,
         keywords: "toggle explorer sidebar panel files",
         shortcut: "explorer",
@@ -92,7 +104,11 @@ export function usePaletteActions(): PaletteAction[] {
       },
       {
         id: "inspector",
-        label: inspectorOpen ? "Hide inspector" : "Show inspector",
+        label: !docked
+          ? "Toggle inspector"
+          : inspectorOpen
+            ? "Hide inspector"
+            : "Show inspector",
         icon: PanelRight,
         keywords: "toggle inspector sidebar panel details",
         shortcut: "inspector",
@@ -103,18 +119,14 @@ export function usePaletteActions(): PaletteAction[] {
         label: "Copy share link",
         icon: Link,
         keywords: "url permalink clipboard",
-        perform: () => void copyText(shareUrl(), "Link copied"),
+        perform: () => void copyShareLink(),
       },
       {
         id: "new",
         label: "Analyze another repo",
         icon: Plus,
         keywords: "new github upload repository folder start",
-        perform: () => {
-          // A stale error from an earlier attempt would otherwise greet the start screen.
-          useIngest.getState().reset();
-          useWorkspace.getState().setProject(null);
-        },
+        perform: startNewAnalysis,
       },
     );
   }
@@ -133,6 +145,15 @@ export function usePaletteActions(): PaletteAction[] {
       keywords: "help keys hotkeys keybindings",
       shortcut: "help",
       perform: toggleShortcuts,
+    },
+    {
+      id: "single-key",
+      label: singleKey
+        ? "Turn off single-key shortcuts"
+        : "Turn on single-key shortcuts",
+      icon: singleKey ? KeyboardOff : Keyboard,
+      keywords: "hotkeys keys speech input accessibility",
+      perform: toggleSingleKeyShortcuts,
     },
   );
   return actions;

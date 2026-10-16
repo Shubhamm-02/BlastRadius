@@ -3,7 +3,7 @@
 import { AppShell } from "@/components/shell/AppShell";
 import { WorkspaceEffects } from "@/state/effects";
 
-export function GraphView({ projectHint }: { projectHint: boolean }) {
+export function Workspace({ projectHint }: { projectHint: boolean }) {
   return (
     <>
       <WorkspaceEffects />

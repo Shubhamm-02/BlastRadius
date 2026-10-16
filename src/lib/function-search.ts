@@ -1,6 +1,6 @@
 import type { Degree } from "@/lib/graph-metrics";
 import type { GNode } from "@/lib/graph-types";
-import { fuzzyScore, substringScore } from "./fuzzy";
+import { fuzzyScore, substringScore } from "@/lib/fuzzy";
 
 export interface FileEntry {
   file: string;
@@ -89,6 +89,7 @@ function topByScore<T>(
 export function rankFunctions(
   index: SearchIndex,
   tokens: string[],
+  limit = FUNCTION_LIMIT,
 ): Ranked<GNode> {
   const scored: { item: GNode; score: number; size: number }[] = [];
   const { nodes, nameLower, fileLower } = index;
@@ -103,7 +104,7 @@ export function rankFunctions(
     if (total > 0)
       scored.push({ item: node, score: total, size: node.name.length });
   }
-  return topByScore(scored, FUNCTION_LIMIT);
+  return topByScore(scored, limit);
 }
 
 /** Mirrors rankFunctions per token, so a path hit is shown in the path, not the name. */

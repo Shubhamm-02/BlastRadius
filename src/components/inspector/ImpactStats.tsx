@@ -1,5 +1,6 @@
 "use client";
 
+import { plural } from "@/lib/format";
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { NumberTicker } from "@/components/ui/number-ticker";
@@ -9,7 +10,7 @@ import { cn } from "@/lib/cn";
 import { IMPACT_LIMIT } from "@/lib/constants";
 import type { ImpactResult } from "@/lib/impact";
 import { DURATION, ease } from "@/lib/motion";
-import { affectedNoun, plural, type BlastRadius } from "./blast-radius";
+import { affectedNoun, type BlastRadius } from "./blast-radius";
 
 // Nearer hops read stronger; indexed by hop - 1, covers DEPTH_MAX.
 const HOP_TINT = [

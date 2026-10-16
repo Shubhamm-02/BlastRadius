@@ -7,6 +7,7 @@ import {
   FolderGit2,
   RotateCcw,
   SquareFunction,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -27,7 +28,8 @@ import { parseRepoRef, type RepoRef } from "@/lib/repo-ref";
 import { useIngest } from "@/state/ingest";
 import { useProjectData } from "@/state/project";
 import { useWorkspace } from "@/state/workspace";
-import { matchPositions, tokenize } from "./fuzzy";
+import { plural } from "@/lib/format";
+import { matchPositions, tokenize } from "@/lib/fuzzy";
 import {
   functionHighlights,
   mostCalled,
@@ -37,7 +39,7 @@ import {
   searchIndex,
   type FileEntry,
   type Ranked,
-} from "./search";
+} from "@/lib/function-search";
 import { KeyCombo, ShortcutKeys } from "./ShortcutKeys";
 import { usePaletteActions, type PaletteAction } from "./usePaletteActions";
 
@@ -49,9 +51,6 @@ const fnIdOf = (value: string): string | null =>
   value.startsWith(FN_PREFIX)
     ? value.slice(value.indexOf(":", FN_PREFIX.length) + 1)
     : null;
-
-const plural = (n: number, word: string) =>
-  `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
 
 const LOADING_ROW_WIDTHS = ["w-28", "w-40", "w-24"];
 const NO_TOKENS: string[] = [];
@@ -169,17 +168,30 @@ function PaletteBody({
       onValueChange={onActiveChange}
     >
       {fileEntry && <ScopeBar entry={fileEntry} onBack={leaveFile} />}
-      <CommandInput
-        ref={inputRef}
-        value={query}
-        onValueChange={onQueryChange}
-        placeholder={placeholder}
-        onKeyDown={(e) => {
-          if (e.key !== "Backspace" || query || !fileEntry) return;
-          e.preventDefault();
-          leaveFile();
-        }}
-      />
+      <div className="relative">
+        <CommandInput
+          ref={inputRef}
+          value={query}
+          onValueChange={onQueryChange}
+          placeholder={placeholder}
+          className="max-sm:pr-8"
+          onKeyDown={(e) => {
+            if (e.key !== "Backspace" || query || !fileEntry) return;
+            e.preventDefault();
+            leaveFile();
+          }}
+        />
+        {/* Touch and screen reader users have no Esc and cannot reach the overlay. */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Close"
+          onClick={onClose}
+          className="absolute right-2 top-2.5 sm:hidden"
+        >
+          <X />
+        </Button>
+      </div>
       {/* Animates to the measured content height; +12px is the list's own p-1.5. */}
       <CommandList className="h-[calc(var(--cmdk-list-height)+12px)] transition-[height] duration-fast ease-out">
         {fileEntry ? (

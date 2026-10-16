@@ -5,15 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import type { GNode } from "@/lib/graph-types";
 import { useWorkspace } from "@/state/workspace";
-import { matchMarks } from "./search";
+import { tokenize } from "@/lib/fuzzy";
+import { functionHighlights } from "@/lib/function-search";
 
 export const ROW_HEIGHT = 44;
 
 export const optionId = (index: number) => `explorer-option-${index}`;
 
-function marked(text: string, positions: number[]): ReactNode {
-  if (positions.length === 0) return text;
-  const hits = new Set(positions);
+function marked(text: string, hits: Set<number>): ReactNode {
+  if (hits.size === 0) return text;
   const parts: ReactNode[] = [];
   let start = 0;
   for (let i = 1; i <= text.length; i++) {
@@ -70,7 +70,10 @@ export const FunctionRow = memo(function FunctionRow({
   onCommit: (index: number) => void;
   onHover: (id: string | null) => void;
 }) {
-  const marks = useMemo(() => matchMarks(node, query), [node, query]);
+  const marks = useMemo(
+    () => functionHighlights(node, tokenize(query)),
+    [node, query],
+  );
   const isHovered = useWorkspace((s) => s.hoveredId === node.id);
 
   return (
@@ -85,7 +88,7 @@ export const FunctionRow = memo(function FunctionRow({
       className={cn(
         "absolute inset-x-1.5 top-0 flex h-11 cursor-pointer select-none items-center gap-2 rounded-sm px-2.5 transition-colors duration-fast ease-out hover:bg-surface-2",
         isHovered && "bg-surface-2",
-        isActive && "bg-surface-2 ring-1 ring-inset ring-border-strong",
+        isActive && "bg-surface-2 ring-1 ring-inset ring-text-muted",
         isTarget && "bg-surface-3 hover:bg-surface-3",
       )}
       style={{ transform: `translateY(${offset}px)` }}

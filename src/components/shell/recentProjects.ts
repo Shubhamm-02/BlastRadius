@@ -44,17 +44,3 @@ export function rememberProject(project: RecentProject): void {
     // The switcher just shows fewer recents.
   }
 }
-
-export function openedAgo(at: number, now = Date.now()): string {
-  const minutes = Math.floor((now - at) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(at).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}

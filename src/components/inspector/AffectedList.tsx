@@ -1,5 +1,6 @@
 "use client";
 
+import { plural } from "@/lib/format";
 import { ChevronRight } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useState } from "react";
@@ -15,7 +16,7 @@ import { cn } from "@/lib/cn";
 import type { AffectedFunction, ImpactResult } from "@/lib/impact";
 import { DURATION, ease } from "@/lib/motion";
 import { useWorkspace } from "@/state/workspace";
-import { plural, type BlastRadius } from "./blast-radius";
+import { type BlastRadius } from "./blast-radius";
 import { FilePath } from "./FilePath";
 
 const DEFAULT_OPEN_GROUPS = 6;
@@ -69,7 +70,7 @@ function AffectedRow({
         onFocus={() => hover(fn.id)}
         onBlur={() => hover(null)}
         className={cn(
-          "flex w-full min-w-0 items-center gap-2 rounded-sm py-1 pl-7 pr-2 text-left transition-colors duration-fast ease-out hover:bg-surface-3",
+          "flex w-full min-w-0 items-center gap-2 rounded-sm py-1 pl-7 pr-2 text-left transition-colors duration-fast ease-out hover:bg-surface-3 focus-visible:ring-inset focus-visible:ring-offset-0",
           hovered && "bg-surface-3",
         )}
       >

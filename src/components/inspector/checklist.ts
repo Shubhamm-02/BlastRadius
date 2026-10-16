@@ -1,6 +1,7 @@
+import { plural } from "@/lib/format";
 import { groupByFile } from "@/lib/graph-metrics";
 import type { FunctionRef, ImpactResult } from "@/lib/impact";
-import { affectedNoun, fileCount, plural } from "./blast-radius";
+import { affectedNoun, fileCount } from "./blast-radius";
 
 const CHECKLIST_LIMIT = 40;
 

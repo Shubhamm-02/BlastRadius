@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 
 /** Target (red) inside its blast radius (amber rings). */
-export function BlastMark({ className }: { className?: string }) {
+function BlastMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" aria-hidden className={cn("size-4", className)}>
       <circle

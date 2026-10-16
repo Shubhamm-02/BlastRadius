@@ -2,9 +2,6 @@ import { useMemo } from "react";
 import { groupByFile, hopHistogram, riskOf } from "@/lib/graph-metrics";
 import type { Direction, ImpactResult } from "@/lib/impact";
 
-export const plural = (count: number, word: string) =>
-  `${count} ${word}${count === 1 ? "" : "s"}`;
-
 export function affectedNoun(direction: Direction, count: number) {
   const noun = direction === "upstream" ? "caller" : "callee";
   const verb = direction === "upstream" ? "affected" : "reached";

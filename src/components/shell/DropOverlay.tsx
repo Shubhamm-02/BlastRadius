@@ -57,8 +57,7 @@ export function DropOverlay() {
         : "copy";
     };
     const onDrop = (e: DragEvent) => {
-      // A nested drop zone (onboarding) that already handled it calls preventDefault.
-      if (!carriesFiles(e) || !e.dataTransfer || e.defaultPrevented) return;
+      if (!carriesFiles(e) || !e.dataTransfer) return;
       e.preventDefault();
       if (!isBusy(useIngest.getState().phase)) void analyzeDrop(e.dataTransfer);
     };
