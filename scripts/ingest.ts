@@ -2,9 +2,13 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
 import neo4j from "neo4j-driver";
-import { analyzeProject, writeGraph, type SourceFileInput } from "../src/lib/analyze";
+import {
+  analyzeProject,
+  writeGraph,
+  type SourceFileInput,
+} from "../src/lib/analyze";
 
-// Reuse the same credentials the Next app uses.
+// Same files Next reads. dotenv never overwrites a set variable, so .env.local wins.
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
@@ -33,7 +37,6 @@ async function main() {
     ? resolved
     : path.dirname(resolved);
 
-  // Read all TS/JS files under baseDir into memory.
   const inputs: SourceFileInput[] = readdirSync(baseDir, { recursive: true })
     .map((e) => String(e))
     .filter(
@@ -56,9 +59,13 @@ async function main() {
   const driver = neo4j.driver(
     NEO4J_URI,
     neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD),
+    { disableLosslessIntegers: true },
   );
   try {
-    await writeGraph(driver, projectId, result);
+    await writeGraph(driver, projectId, result, {
+      slug: path.basename(baseDir),
+      source: "cli",
+    });
     console.log(`Graph written to AuraDB (projectId: ${projectId}).`);
     console.log(
       `Open: http://localhost:3000/?projectId=${encodeURIComponent(projectId)}`,

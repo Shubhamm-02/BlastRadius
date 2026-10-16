@@ -1,4 +1,6 @@
-import neo4j, { type Driver } from "neo4j-driver";
+import { waitUntil } from "@vercel/functions";
+import neo4j from "neo4j-driver";
+import { getDriver } from "@/lib/neo4j";
 
 export interface EventInput {
   type: "ingest" | "impact";
@@ -9,33 +11,35 @@ export interface EventInput {
 }
 
 /**
- * Record a usage event as an (:Event) node. Analytics must never break the
+ * Record a usage event as an (:Event) node without blocking the response.
+ * On Vercel, waitUntil keeps the function alive until the write finishes;
+ * elsewhere it's a plain fire-and-forget. Analytics must never break the
  * user's request, so all errors are swallowed.
  */
-export async function logEvent(driver: Driver, ev: EventInput): Promise<void> {
-  const session = driver.session();
-  try {
-    await session.run(
-      `CREATE (e:Event {
-         type: $type,
-         anonId: $anonId,
-         repo: $repo,
-         functionId: $functionId,
-         projectId: $projectId,
-         ts: $ts
-       })`,
-      {
-        type: ev.type,
-        anonId: ev.anonId ?? "anon",
-        repo: ev.repo ?? null,
-        functionId: ev.functionId ?? null,
-        projectId: ev.projectId ?? null,
-        ts: neo4j.int(Date.now()),
-      },
-    );
-  } catch {
-    // ignore — never let telemetry affect the response
-  } finally {
-    await session.close();
-  }
+export function logEvent(ev: EventInput): void {
+  const write = (async () => {
+    try {
+      await getDriver().executeQuery(
+        `CREATE (e:Event {
+           type: $type,
+           anonId: $anonId,
+           repo: $repo,
+           functionId: $functionId,
+           projectId: $projectId,
+           ts: $ts
+         })`,
+        {
+          type: ev.type,
+          anonId: ev.anonId ?? "anon",
+          repo: ev.repo ?? null,
+          functionId: ev.functionId ?? null,
+          projectId: ev.projectId ?? null,
+          ts: neo4j.int(Date.now()),
+        },
+      );
+    } catch {
+      // telemetry must never affect the response
+    }
+  })();
+  waitUntil(write);
 }
