@@ -14,11 +14,7 @@ import type {
   IngestStage,
   IngestStreamEvent,
 } from "@/lib/ingest";
-import {
-  entriesFromFileList,
-  readUpload,
-  type UploadEntry,
-} from "@/lib/upload";
+import { MAX_UPLOAD_BYTES, readUpload, type UploadEntry } from "@/lib/upload";
 import { useWorkspace } from "./workspace";
 
 export type IngestPhase =
@@ -52,13 +48,22 @@ interface IngestState {
   warning: string;
   result: IngestResult | null;
   analyzeRepo(repo: string): void;
-  uploadEntries(entries: UploadEntry[] | FileList): Promise<void>;
+  uploadEntries(entries: UploadEntry[]): Promise<void>;
   cancel(): void;
   /** Back to idle after the success animation or a dismissed error. */
   reset(): void;
 }
 
 let inflight: AbortController | null = null;
+
+/** Back to the start screen; also drops a stale error from an earlier attempt. */
+export function startNewAnalysis() {
+  useIngest.getState().reset();
+  useWorkspace.getState().setProject(null);
+}
+// Bumped on every upload, cancel and reset so a folder read that finishes
+// late cannot start or fail a run it no longer belongs to.
+let uploadGen = 0;
 
 const busy = (phase: IngestPhase) =>
   phase === "preparing" || phase === "running";
@@ -153,9 +158,9 @@ export const useIngest = create<IngestState>()((set, get) => {
       void run({ repo: r }, { kind: "github", repo: r });
     },
 
-    async uploadEntries(input) {
+    async uploadEntries(entries) {
       if (busy(get().phase)) return;
-      const entries = Array.isArray(input) ? input : entriesFromFileList(input);
+      const gen = ++uploadGen;
       set({
         phase: "preparing",
         source: null,
@@ -170,7 +175,7 @@ export const useIngest = create<IngestState>()((set, get) => {
       });
       try {
         const upload = await readUpload(entries);
-        if (get().phase !== "preparing") return; // cancelled while reading
+        if (gen !== uploadGen) return;
         if (upload.files.length === 0) {
           set({
             phase: "error",
@@ -183,22 +188,25 @@ export const useIngest = create<IngestState>()((set, get) => {
           { files: upload.files, name: upload.name, skipped: upload.skipped },
           { kind: "upload", name: upload.name, fileCount: upload.files.length },
           upload.skipped > 0
-            ? `Folder is over 4 MB of code: uploading ${upload.files.length} of ${upload.matched} files.`
+            ? `Folder is over ${MAX_UPLOAD_BYTES / 1_000_000} MB of code: uploading ${upload.files.length} of ${upload.matched} files.`
             : "",
         );
       } catch (e) {
+        if (gen !== uploadGen) return;
         set({ phase: "error", error: messageOf(e), finishedAt: Date.now() });
       }
     },
 
     cancel() {
       if (!busy(get().phase)) return;
+      uploadGen++;
       inflight?.abort();
       set({ phase: "cancelled", finishedAt: Date.now() });
     },
 
     reset() {
       if (busy(get().phase)) return;
+      uploadGen++;
       set({
         phase: "idle",
         source: null,

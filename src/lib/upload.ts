@@ -43,7 +43,7 @@ export async function entriesFromDrop(
       out.push({ path, file });
       return;
     }
-    if (SKIP.test(path + "/")) return;
+    if (prefix && SKIP.test(path + "/")) return;
     const reader = (entry as FileSystemDirectoryEntry).createReader();
     // readEntries returns at most ~100 entries per call; read until empty.
     for (;;) {
@@ -72,7 +72,8 @@ export async function readUpload(
         (CODE_EXT.test(path) && !path.endsWith(".d.ts")) ||
         CONFIG_RE.test(path),
     )
-    .filter(({ path }) => !SKIP.test(path))
+    // Only below the chosen root: a folder named build or out is still the project.
+    .filter(({ path }) => !SKIP.test(path.slice(path.indexOf("/") + 1)))
     .sort((a, b) => a.path.localeCompare(b.path));
 
   const topLevel = picked[0]?.path.includes("/")

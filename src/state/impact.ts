@@ -18,21 +18,16 @@ export interface ImpactQuery {
   direction: Direction;
 }
 
-export type SummarySource = "cache" | "llm" | "fallback";
-
 interface ImpactState {
   query: ImpactQuery | null;
   status: "idle" | "loading" | "ready" | "error";
   error: string;
   /** Authoritative result for `query`, or a locally filtered preview while it loads. */
   result: ImpactResult | null;
-  /** Hop distance per affected function id. */
   hopById: Map<string, number>;
   summary: string;
   summaryStatus: "idle" | "streaming" | "done" | "error";
-  summarySource: SummarySource | null;
   run(query: ImpactQuery | null): void;
-  /** Instantly narrow the current result to `depth` (if possible) while a fetch is pending. */
   previewDepth(depth: number): void;
   retry(): void;
   retrySummary(): void;
@@ -71,7 +66,6 @@ export const useImpact = create<ImpactState>()((set, get) => ({
   hopById: new Map(),
   summary: "",
   summaryStatus: "idle",
-  summarySource: null,
 
   run(query) {
     inflight?.abort();
@@ -85,7 +79,6 @@ export const useImpact = create<ImpactState>()((set, get) => ({
         hopById: new Map(),
         summary: "",
         summaryStatus: "idle",
-        summarySource: null,
       });
       return;
     }
@@ -105,7 +98,6 @@ export const useImpact = create<ImpactState>()((set, get) => ({
       hopById: hopsOf(shown),
       summary: "",
       summaryStatus: "idle",
-      summarySource: null,
     });
 
     const ac = new AbortController();
@@ -153,16 +145,11 @@ export const useImpact = create<ImpactState>()((set, get) => ({
       depth: String(query.depth),
       direction: query.direction,
     });
-    set({ summary: "", summaryStatus: "streaming", summarySource: null });
+    set({ summary: "", summaryStatus: "streaming" });
 
     (async () => {
       const res = await fetch(`/api/explain?${qs}`, { signal: ac.signal });
       if (!res.ok || !res.body) await readJson(res); // throws the API's message
-      set({
-        summarySource: res.headers.get(
-          "x-explanation-source",
-        ) as SummarySource | null,
-      });
       await readText(res.body!, (chunk) => {
         if (!ac.signal.aborted) set((s) => ({ summary: s.summary + chunk }));
       });

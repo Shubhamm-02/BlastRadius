@@ -93,6 +93,6 @@ export const useWorkspace = create<WorkspaceState>()((set) => ({
     })),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
-  setRecent: (recent) => set({ recent }),
+  setRecent: (recent) => set({ recent: recent.slice(0, RECENT_MAX) }),
   registerGraphControls: (graphControls) => set({ graphControls }),
 }));

@@ -33,7 +33,7 @@ function restoreRecent(projectId: string | null) {
   const merged = [
     ...new Set([...ws.recent, ...saved.filter((id) => typeof id === "string")]),
   ];
-  ws.setRecent(merged.slice(0, 8));
+  ws.setRecent(merged);
 }
 
 /**
@@ -65,7 +65,13 @@ export function WorkspaceEffects() {
       if (s.projectId !== prev.projectId || s.selectedId !== prev.selectedId) {
         writeUrl(s.projectId, s.selectedId);
       }
-      if (s.recent !== prev.recent && s.projectId) {
+      // On a project switch restoreRecent's nested notification already saved
+      // the merged list; this outer call still holds the empty pre-restore list.
+      if (
+        s.recent !== prev.recent &&
+        s.projectId &&
+        s.projectId === prev.projectId
+      ) {
         try {
           localStorage.setItem(
             recentKey(s.projectId),
