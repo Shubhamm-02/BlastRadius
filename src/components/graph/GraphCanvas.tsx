@@ -27,6 +27,7 @@ import {
   buildSimGraph,
   createScene,
   createTone,
+  frameView,
   inBlast,
   linkColor,
   linkVisible,
@@ -54,6 +55,8 @@ const FIT_MAX_NODES = 300;
 const ZOOM_STEP = 1.4;
 const PARTICLE_EVERY_MS = 650;
 const PARTICLE_MAX_EDGES = 48;
+/** Bounded so the renderer can pause again while the pointer rests on a node. */
+const PARTICLE_BURSTS = 3;
 const CLICK_SLOP_PX = 5;
 const WARMUP_TICK_BUDGET = 200_000;
 /** Frame the layout once it has roughly spread out, instead of waiting for it to settle. */
@@ -272,15 +275,25 @@ export function GraphCanvas() {
       );
       kick();
       minimapDrawRef.current();
-      if (!id || scene.reduced || particleLinks.length === 0) return;
+      // Palette, explorer and inspector previews highlight neighbors but skip
+      // particles, which would keep the whole graph repainting under them.
+      if (
+        !id ||
+        id !== canvasHoverRef.current ||
+        scene.reduced ||
+        particleLinks.length === 0
+      )
+        return;
 
       const emitting = particleLinks.slice(0, PARTICLE_MAX_EDGES);
+      let bursts = 0;
       const emit = () => {
         const fg = fgRef.current;
         if (!fg) return;
         for (const l of emitting) {
           if (linkVisible(scene, l)) fg.emitParticle(l);
         }
+        if (++bursts >= PARTICLE_BURSTS) clearInterval(particleTimer);
       };
       emit();
       particleTimer = setInterval(emit, PARTICLE_EVERY_MS);
@@ -338,9 +351,10 @@ export function GraphCanvas() {
       linkWidth: (l: FGLink) => linkWidth(scene, l),
       arrowLength: (l: FGLink) => arrowLength(scene, l),
       particleColor: (l: FGLink) => particleColor(scene, l),
-      framePre: (_ctx: CanvasRenderingContext2D, k: number) => {
+      framePre: (ctx: CanvasRenderingContext2D, k: number) => {
         scene.now = performance.now();
         scene.zoom = k;
+        frameView(scene, ctx, k);
       },
       onZoom: ({ k }: { k: number }) => {
         scene.zoom = k;

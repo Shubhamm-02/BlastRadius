@@ -44,8 +44,18 @@ export interface SimGraph {
 
 const CLUSTER_COLORS = 8;
 const MAX_RADIUS = 14;
+const EDGE_TOKEN: Record<EdgeKind, string> = {
+  call: "edge-call",
+  jsx: "edge-jsx",
+  new: "edge-new",
+  ref: "edge-ref",
+};
+const CLUSTER_TOKEN = Array.from(
+  { length: CLUSTER_COLORS },
+  (_, i) => `cluster-${i + 1}`,
+);
 
-export const nodeRadius = (inDegree: number) =>
+const nodeRadius = (inDegree: number) =>
   Math.min(MAX_RADIUS, 3 + 2.2 * Math.sqrt(inDegree));
 
 /**
@@ -109,23 +119,29 @@ export type Tone = (token: string, alpha: number) => string;
  * and force-graph can batch edges that share a color.
  */
 export function createTone(palette: CanvasPalette): Tone {
-  const cache = new Map<string, string>();
+  const cache = new Map<string, string[]>();
   return (token, alpha) => {
-    const a = Math.round(Math.min(1, Math.max(0, alpha)) * 40) / 40;
-    const key = `${token}:${a}`;
-    let color = cache.get(key);
-    if (!color) {
-      color = palette.rgba(token, a);
-      cache.set(key, color);
-    }
-    return color;
+    const i = Math.round(Math.min(1, Math.max(0, alpha)) * 40);
+    let row = cache.get(token);
+    if (!row) cache.set(token, (row = new Array<string>(41)));
+    return (row[i] ??= palette.rgba(token, i / 40));
   };
+}
+
+interface ViewBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
 }
 
 /** Mutable render state read by the paint callbacks; never triggers React renders. */
 export interface Scene {
   tone: Tone | null;
   monoFont: string;
+  labelFont: string;
+  /** Graph-space viewport for the current frame; null paints every node. */
+  view: ViewBox | null;
   now: number;
   zoom: number;
   reduced: boolean;
@@ -142,6 +158,8 @@ export function createScene(): Scene {
   return {
     tone: null,
     monoFont: "ui-monospace, monospace",
+    labelFont: "",
+    view: null,
     now: 0,
     zoom: 1,
     reduced: false,
@@ -173,7 +191,7 @@ interface NodeLook {
 
 export function nodeLook(scene: Scene, node: SimNode): NodeLook {
   const focus = sceneFocus(scene);
-  const cluster = `cluster-${node.cluster + 1}`;
+  const cluster = CLUSTER_TOKEN[node.cluster];
   const near = node.id === scene.hoveredId || scene.hoverNeighbors.has(node.id);
 
   if (!scene.selectedId) {
@@ -222,7 +240,7 @@ export function linkColor(scene: Scene, link: SimLink) {
   const tone = scene.tone;
   if (!tone) return "transparent";
   const focus = sceneFocus(scene);
-  const kind = `edge-${link.kind}`;
+  const kind = EDGE_TOKEN[link.kind];
   const hovered = touchesHover(scene, link);
 
   if (!scene.selectedId) return tone(kind, hovered ? 1 : lerp(0.6, 0.2, focus));
@@ -297,7 +315,7 @@ function paintLabel(
 ) {
   const text = labelText(node.name);
   const size = LABEL_PX / k;
-  ctx.font = `500 ${size}px ${scene.monoFont}`;
+  ctx.font = scene.labelFont;
   if (node.labelWidth === undefined) {
     node.labelWidth = ctx.measureText(text).width * k;
   }
@@ -333,6 +351,15 @@ export function paintNode(
 ) {
   const tone = scene.tone;
   if (!tone || node.x === undefined || node.y === undefined) return;
+  const view = scene.view;
+  if (
+    view &&
+    (node.x < view.minX ||
+      node.x > view.maxX ||
+      node.y < view.minY ||
+      node.y > view.maxY)
+  )
+    return;
   const look = nodeLook(scene, node);
   const alpha = Math.max(look.baseAlpha, look.litAlpha);
   if (alpha < 0.01) return;
@@ -370,6 +397,27 @@ export function paintNode(
   if (wantsLabel(scene, node, k)) {
     paintLabel(scene, node, ctx, k, Math.min(1, alpha + 0.15), tone);
   }
+}
+
+/**
+ * force-graph paints every visible node each frame with no culling, so the
+ * viewport is worked out once per frame and offscreen nodes skip their paint.
+ * The padding covers the largest node plus a full label hanging off it.
+ */
+export function frameView(
+  scene: Scene,
+  ctx: CanvasRenderingContext2D,
+  k: number,
+) {
+  scene.labelFont = `500 ${LABEL_PX / k}px ${scene.monoFont}`;
+  const m = ctx.getTransform();
+  const pad = MAX_RADIUS + (LABEL_MAX_CHARS * LABEL_PX) / k;
+  scene.view = {
+    minX: -m.e / m.a - pad,
+    minY: -m.f / m.d - pad,
+    maxX: (ctx.canvas.width - m.e) / m.a + pad,
+    maxY: (ctx.canvas.height - m.f) / m.d + pad,
+  };
 }
 
 const MIN_HIT_PX = 6;

@@ -1,6 +1,6 @@
 import type { Transition } from "motion/react";
 
-export const EASE_OUT = [0.2, 0.8, 0.2, 1] as const;
+const EASE_OUT = [0.2, 0.8, 0.2, 1] as const;
 
 export const DURATION = { fast: 0.15, base: 0.2, slow: 0.3 } as const;
 
@@ -16,6 +16,3 @@ export const SPRING: Transition = {
   damping: 38,
   mass: 0.8,
 };
-
-/** Delay between hop rings in the blast animation, in ms. */
-export const HOP_STAGGER_MS = 80;

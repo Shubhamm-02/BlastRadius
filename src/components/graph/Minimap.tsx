@@ -167,7 +167,7 @@ export function Minimap({
 
   // The focus ring sits on the wrapper: overflow-hidden would clip it on the canvas.
   return (
-    <div className="pointer-events-auto absolute bottom-3 right-3 z-10 hidden overflow-hidden rounded-md border border-border bg-surface-1 shadow-raised has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/70 has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-bg md:block">
+    <div className="pointer-events-auto absolute bottom-3 right-3 z-10 hidden overflow-hidden rounded-md border border-border bg-surface-1 shadow-raised has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent-ink has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-bg md:block">
       <canvas
         ref={canvasRef}
         tabIndex={0}

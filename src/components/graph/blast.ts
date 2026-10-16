@@ -1,10 +1,10 @@
-import { HOP_STAGGER_MS } from "@/lib/motion";
-
-export const LIGHT_MS = 200;
+const LIGHT_MS = 200;
 export const RING_MS = 600;
 export const RING_GAP_MS = 180;
 export const MODE_FADE_MS = 250;
 export const CAMERA_MS = 400;
+/** Delay between hop rings in the blast wave. */
+const HOP_STAGGER_MS = 80;
 /** The hop wave starts just after the target ring, so it reads as emanating from it. */
 const WAVE_LEAD_MS = 120;
 

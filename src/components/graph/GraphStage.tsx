@@ -127,8 +127,11 @@ export function GraphStage() {
 
   return (
     <section
+      id="call-graph"
       aria-label="Call graph"
-      className="relative h-full min-h-0 w-full flex-1 overflow-hidden"
+      // Programmatic focus target (e.g. after an analysis finishes), not a tab stop.
+      tabIndex={-1}
+      className="relative h-full min-h-0 w-full flex-1 overflow-hidden focus-visible:ring-0 focus-visible:ring-offset-0"
     >
       <AnimatePresence initial={false}>
         {phase === "ready" ? (
