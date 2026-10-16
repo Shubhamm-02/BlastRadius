@@ -75,7 +75,7 @@ export async function readNdjson<T>(
   if (buf.trim()) onEvent(JSON.parse(buf) as T);
 }
 
-// Privacy-friendly anonymous id (no PII), persisted per browser.
+// Random per-browser id that tags usage events; it carries no PII.
 export function getAnonId(): string {
   try {
     let id = localStorage.getItem("br_anon");

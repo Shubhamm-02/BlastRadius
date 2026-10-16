@@ -171,7 +171,7 @@ function* analyzeSteps(
     .filter((sf) => !sf.isDeclarationFile());
 
   // Keyed by compiler node so lookups don't depend on wrapper identity.
-  const byBody = new Map<ts.Node, Callable>(); // function-like node → callable
+  const byBody = new Map<ts.Node, Callable>();
   const byDecl = new Map<ts.Node, Callable>(); // anything a symbol can point at
   const ctorByClass = new Map<ts.Node, Callable>();
   const renderByClass = new Map<ts.Node, Callable>();

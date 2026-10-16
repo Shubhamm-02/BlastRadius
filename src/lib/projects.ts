@@ -87,7 +87,6 @@ export async function getProject(
   };
 }
 
-/** Whether a project exists and has finished writing. */
 export async function isProjectReady(
   driver: Driver,
   projectId: string,

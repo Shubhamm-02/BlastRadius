@@ -8,7 +8,7 @@ import {
   type SourceFileInput,
 } from "../src/lib/analyze";
 
-// Reuse the same credentials the Next app uses.
+// Same files Next reads. dotenv never overwrites a set variable, so .env.local wins.
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 

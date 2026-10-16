@@ -94,15 +94,19 @@ export async function runIngest(
     slug = `${ref.owner}/${ref.repo}${ref.ref ? "@" + ref.ref : ""}`;
     source = "github";
     let extracted = 0;
-    const fetched = await fetchRepoFiles(ref, (stage, detail) => {
-      // Extraction has no known total; creep toward the end of its window.
-      if (stage === "extract") extracted++;
-      report(
-        stage,
-        stage === "fetch" ? 0.5 : 1 - 1 / (1 + extracted / 10),
-        detail,
-      );
-    }, signal);
+    const fetched = await fetchRepoFiles(
+      ref,
+      (stage, detail) => {
+        // Extraction has no known total; creep toward the end of its window.
+        if (stage === "extract") extracted++;
+        report(
+          stage,
+          stage === "fetch" ? 0.5 : 1 - 1 / (1 + extracted / 10),
+          detail,
+        );
+      },
+      signal,
+    );
     files = fetched.files;
     skipped = fetched.stats.skipped;
     commit = fetched.stats.commit;

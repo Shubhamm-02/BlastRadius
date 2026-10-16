@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import neo4j from "neo4j-driver";
 import { SCHEMA_STATEMENTS } from "../src/lib/schema";
 
-// Reuse the same credentials the Next app uses.
+// Same files Next reads. dotenv never overwrites a set variable, so .env.local wins.
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
