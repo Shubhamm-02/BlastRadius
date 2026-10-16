@@ -7,7 +7,9 @@ export interface Degree {
 }
 
 export function degrees(nodes: GNode[], links: GLink[]): Map<string, Degree> {
-  const map = new Map<string, Degree>(nodes.map((n) => [n.id, { in: 0, out: 0 }]));
+  const map = new Map<string, Degree>(
+    nodes.map((n) => [n.id, { in: 0, out: 0 }]),
+  );
   for (const l of links) {
     const s = map.get(linkEnd(l.source));
     const t = map.get(linkEnd(l.target));
@@ -19,11 +21,13 @@ export function degrees(nodes: GNode[], links: GLink[]): Map<string, Degree> {
 
 /**
  * Cluster key for coloring the full graph: the first two path segments
- * ("src/lib"), or the top-level folder for shallow files.
+ * ("src/lib"), the top-level folder for shallow files, or the file itself in
+ * a flat repo so it isn't one color.
  */
 export function clusterOf(file: string): string {
   const parts = file.split("/");
-  return parts.length > 2 ? `${parts[0]}/${parts[1]}` : parts.length === 2 ? parts[0] : ".";
+  if (parts.length === 1) return file;
+  return parts.length === 2 ? parts[0] : `${parts[0]}/${parts[1]}`;
 }
 
 export type Risk = "low" | "medium" | "high";
@@ -49,5 +53,9 @@ export function groupByFile(affected: AffectedFunction[]) {
     else groups.set(a.file, [a]);
   }
   // Nearest file first; affected arrives sorted by hops already.
-  return [...groups].map(([file, fns]) => ({ file, fns, minHops: fns[0].hops }));
+  return [...groups].map(([file, fns]) => ({
+    file,
+    fns,
+    minHops: fns[0].hops,
+  }));
 }
