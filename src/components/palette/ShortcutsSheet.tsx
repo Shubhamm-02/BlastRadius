@@ -9,12 +9,19 @@ import {
 } from "@/components/ui/dialog";
 import { useWorkspace } from "@/state/workspace";
 import { KeyCombo, useModLabel } from "./ShortcutKeys";
-import { SHORTCUT_GROUPS, SHORTCUTS, shortcutKeys } from "./shortcuts";
+import {
+  SHORTCUT_GROUPS,
+  SHORTCUTS,
+  shortcutKeys,
+  useSingleKeyShortcuts,
+} from "./shortcuts";
 
 export function ShortcutsSheet() {
   const open = useWorkspace((s) => s.shortcutsOpen);
   const setOpen = useWorkspace((s) => s.setShortcutsOpen);
   const modLabel = useModLabel();
+  const singleKey = useSingleKeyShortcuts((s) => s.on);
+  const setSingleKey = useSingleKeyShortcuts((s) => s.setOn);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -48,6 +55,20 @@ export function ShortcutsSheet() {
             </section>
           ))}
         </div>
+        <label className="flex items-start gap-3 border-t border-border px-5 py-4 text-sm">
+          <input
+            type="checkbox"
+            checked={singleKey}
+            onChange={(e) => setSingleKey(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0 accent-text"
+          />
+          <span>
+            <span className="block text-text">Single-key shortcuts</span>
+            <span className="block text-text-muted">
+              Turn off if you use speech input or type outside text fields.
+            </span>
+          </span>
+        </label>
       </DialogContent>
     </Dialog>
   );

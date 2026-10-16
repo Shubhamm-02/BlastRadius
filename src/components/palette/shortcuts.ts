@@ -1,5 +1,6 @@
 "use client";
 
+import { create } from "zustand";
 import { useWorkspace } from "@/state/workspace";
 
 export type ShortcutGroup = "Navigation" | "Graph" | "Panels";
@@ -37,6 +38,35 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
 
 const ws = () => useWorkspace.getState();
 
+const SINGLE_KEY_STORAGE_KEY = "br:single-key-shortcuts";
+
+// Speech input and typing outside fields trigger plain keys by accident (WCAG 2.1.4).
+export const useSingleKeyShortcuts = create<{
+  on: boolean;
+  setOn(on: boolean): void;
+}>((set) => ({
+  on: (() => {
+    try {
+      return localStorage.getItem(SINGLE_KEY_STORAGE_KEY) !== "off";
+    } catch {
+      return true;
+    }
+  })(),
+  setOn: (on) => {
+    set({ on });
+    try {
+      localStorage.setItem(SINGLE_KEY_STORAGE_KEY, on ? "on" : "off");
+    } catch {
+      // The setting resets to on next visit.
+    }
+  },
+}));
+
+export function toggleSingleKeyShortcuts() {
+  const { on, setOn } = useSingleKeyShortcuts.getState();
+  setOn(!on);
+}
+
 export const isMac = () => /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
 
 export const isEditable = (target: EventTarget | null): target is HTMLElement =>
@@ -46,7 +76,7 @@ export const isEditable = (target: EventTarget | null): target is HTMLElement =>
     target.tagName === "TEXTAREA" ||
     target.tagName === "SELECT");
 
-export function togglePalette() {
+function togglePalette() {
   const { paletteOpen, setPaletteOpen, setShortcutsOpen } = ws();
   setShortcutsOpen(false);
   setPaletteOpen(!paletteOpen);
@@ -60,7 +90,7 @@ export function toggleShortcuts() {
 
 const SEARCH_FOCUS_MAX_FRAMES = 20;
 
-export function focusExplorerSearch() {
+function focusExplorerSearch() {
   const { projectId, revealPanel } = ws();
   if (!projectId) return;
   revealPanel("explorer");

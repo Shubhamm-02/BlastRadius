@@ -77,7 +77,11 @@ function useElapsed(startedAt: number | null, finishedAt: number | null) {
  * The pill only takes layoutId="project-pill" in the frame before reset, so
  * the previous project's pill never flies into the card when "done" begins.
  */
-function useHandoff(done: boolean, holdMs: number) {
+function useHandoff(
+  done: boolean,
+  holdMs: number,
+  cardRef: RefObject<HTMLDivElement>,
+) {
   const reset = useIngest((s) => s.reset);
   const graphLoading = useProjectData((s) => s.status === "loading");
   const [beatOver, setBeatOver] = useState(false);
@@ -100,9 +104,20 @@ function useHandoff(done: boolean, holdMs: number) {
   const handoff = done && beatOver && graphSettled;
   useEffect(() => {
     if (!handoff) return;
-    const frame = requestAnimationFrame(() => reset());
+    const frame = requestAnimationFrame(() => {
+      // The card unmounts on reset(); hand focus to the explorer search, or to
+      // the graph when the explorer is collapsed or a closed sheet, never <body>.
+      if (cardRef.current?.contains(document.activeElement)) {
+        const search = document.getElementById("explorer-search");
+        search?.focus({ preventScroll: true });
+        if (document.activeElement !== search) {
+          document.getElementById("call-graph")?.focus({ preventScroll: true });
+        }
+      }
+      reset();
+    });
     return () => cancelAnimationFrame(frame);
-  }, [handoff, reset]);
+  }, [handoff, reset, cardRef]);
 
   return { handoff, graphSettled };
 }
@@ -324,7 +339,12 @@ export function IngestProgress() {
   // the folder, which would freeze the timer at 0:00.
   const elapsed = useElapsed(startedAt, busy ? null : finishedAt);
   const holdMs = warning ? WARNING_BEAT_MS : reduce ? 0 : SUCCESS_BEAT_MS;
-  const { handoff, graphSettled } = useHandoff(phase === "done", holdMs);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const { handoff, graphSettled } = useHandoff(
+    phase === "done",
+    holdMs,
+    cardRef,
+  );
 
   const steps = ingestSteps(
     run,
@@ -337,7 +357,6 @@ export function IngestProgress() {
         ? "Analysis cancelled"
         : steps.find((s) => s.state === "active")?.label;
 
-  const cardRef = useRef<HTMLDivElement>(null);
   const actionRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     // Only claim focus when it was dropped (the hero input or a clicked

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Onboarding } from "@/components/onboarding/Onboarding";
 import { useShortcuts } from "@/components/palette/useShortcuts";
 import { useWorkspace } from "@/state/workspace";
+import { ImpactAnnouncer } from "@/components/inspector/ImpactAnnouncer";
 import { DropOverlay } from "./DropOverlay";
 import { MobileBar } from "./MobileBar";
 import { SidePanel } from "./SidePanel";
@@ -63,6 +64,19 @@ function useOnceTrue(value: boolean): boolean {
   return seen || value;
 }
 
+// Its own component so opening the palette or the shortcuts sheet doesn't
+// re-render the panels.
+function Overlays() {
+  const paletteUsed = useOnceTrue(useWorkspace((s) => s.paletteOpen));
+  const shortcutsUsed = useOnceTrue(useWorkspace((s) => s.shortcutsOpen));
+  return (
+    <>
+      {paletteUsed && <CommandPalette />}
+      {shortcutsUsed && <ShortcutsSheet />}
+    </>
+  );
+}
+
 /**
  * `projectHint` is true when the request URL carried ?projectId=. The store
  * only learns the project in an effect, so the hint keeps the side panels in
@@ -71,8 +85,6 @@ function useOnceTrue(value: boolean): boolean {
 export function AppShell({ projectHint }: { projectHint: boolean }) {
   useShortcuts();
   usePrefetchOverlays();
-  const paletteUsed = useOnceTrue(useWorkspace((s) => s.paletteOpen));
-  const shortcutsUsed = useOnceTrue(useWorkspace((s) => s.shortcutsOpen));
 
   const bp = useBreakpoint();
   const projectId = useWorkspace((s) => s.projectId);
@@ -96,7 +108,11 @@ export function AppShell({ projectHint }: { projectHint: boolean }) {
   return (
     // No background: body paints bg-bg and the grain layer sits between it and the shell.
     <div className="relative z-[1] flex h-dvh w-full flex-col overflow-hidden">
-      <TopBar hasProject={hasProject} inspectorOpen={inspectorOpen} />
+      <TopBar
+        hasProject={hasProject}
+        inspectorOpen={inspectorOpen}
+        inspectorDocked={inspectorDocked}
+      />
       <div className="flex min-h-0 flex-1">
         {explorerDocked && (
           <SidePanel
@@ -134,9 +150,9 @@ export function AppShell({ projectHint }: { projectHint: boolean }) {
       {hasProject && bp === "mobile" && (
         <MobileSheets sheets={sheets} setSheet={setSheet} />
       )}
+      {workspaceUsed && <ImpactAnnouncer />}
       <DropOverlay />
-      {paletteUsed && <CommandPalette />}
-      {shortcutsUsed && <ShortcutsSheet />}
+      <Overlays />
     </div>
   );
 }

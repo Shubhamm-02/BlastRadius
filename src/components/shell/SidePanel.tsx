@@ -101,7 +101,7 @@ function ResizeHandle({
       <span
         aria-hidden
         className={cn(
-          "absolute inset-y-0 w-px transition-colors duration-fast ease-out group-hover:bg-accent/50 group-focus-visible:w-0.5 group-focus-visible:bg-accent group-active:bg-accent",
+          "absolute inset-y-0 w-px transition-colors duration-fast ease-out group-hover:bg-accent/50 group-focus-visible:w-0.5 group-focus-visible:bg-accent-ink group-active:bg-accent",
           // Sits exactly over the panel's hairline border.
           side === "left" ? "right-1" : "left-1",
         )}

@@ -92,22 +92,10 @@ export const CommandItem = forwardRef<
   <Cmdk.Item
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center gap-2.5 rounded px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-surface-3 data-[disabled=true]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-text-dim",
+      "flex cursor-default select-none items-center gap-2.5 rounded px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-surface-3 data-[selected=true]:shadow-[inset_2px_0_0_rgb(var(--text-muted))] data-[disabled=true]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-text-dim",
       className,
     )}
     {...props}
   />
 ));
 CommandItem.displayName = "CommandItem";
-
-export const CommandSeparator = forwardRef<
-  ElementRef<typeof Cmdk.Separator>,
-  ComponentPropsWithoutRef<typeof Cmdk.Separator>
->(({ className, ...props }, ref) => (
-  <Cmdk.Separator
-    ref={ref}
-    className={cn("-mx-1.5 my-1 h-px bg-border", className)}
-    {...props}
-  />
-));
-CommandSeparator.displayName = "CommandSeparator";

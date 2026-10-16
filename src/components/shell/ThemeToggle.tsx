@@ -22,7 +22,12 @@ export function ThemeItems() {
   return (
     <>
       {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
-        <DropdownMenuItem key={value} onSelect={() => setTheme(value)}>
+        <DropdownMenuItem
+          key={value}
+          role="menuitemradio"
+          aria-checked={theme === value}
+          onSelect={() => setTheme(value)}
+        >
           <Icon />
           <span className="flex-1">{label}</span>
           {theme === value && <Check className="!text-text" />}

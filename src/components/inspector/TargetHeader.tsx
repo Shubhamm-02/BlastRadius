@@ -4,6 +4,11 @@ import { Copy, ExternalLink } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tip } from "@/components/ui/tooltip";
 import type { Risk } from "@/lib/graph-metrics";
@@ -31,19 +36,25 @@ function githubBlobUrl(info: ProjectInfo, fn: FunctionRef) {
 
 function RiskBadge({ risk }: { risk: Risk }) {
   return (
-    <Tip
-      side="bottom"
-      label={
-        <span className="block max-w-56">
-          Based on how many functions and files are reached. Medium at 6+
-          functions or 3+ files, high at 25+ functions or 8+ files.
-        </span>
-      }
-    >
-      <button type="button" className="shrink-0 rounded-sm">
-        <Badge tone={RISK_TONE[risk]}>{RISK_LABEL[risk]}</Badge>
-      </button>
-    </Tip>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="shrink-0 rounded-sm"
+          aria-label={`${RISK_LABEL[risk]}, how is this rated?`}
+        >
+          <Badge tone={RISK_TONE[risk]}>{RISK_LABEL[risk]}</Badge>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="end"
+        className="w-60 p-2.5 text-xs text-text-muted"
+      >
+        Based on how many functions and files are reached. Medium at 6+
+        functions or 3+ files, high at 25+ functions or 8+ files.
+      </PopoverContent>
+    </Popover>
   );
 }
 

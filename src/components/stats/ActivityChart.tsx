@@ -13,9 +13,9 @@ const SERIES = [
   {
     key: "impact",
     label: "Functions inspected",
-    line: "stroke-accent",
+    line: "stroke-accent-ink",
     area: "fill-accent/15",
-    swatch: "bg-accent",
+    swatch: "bg-accent-ink",
   },
   {
     key: "ingest",

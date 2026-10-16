@@ -9,38 +9,53 @@ import {
   type HTMLAttributes,
 } from "react";
 import { cn } from "@/lib/cn";
+import { useReturnFocus } from "./use-return-focus";
 
 export const Dialog = DialogPrimitive.Root;
-export const DialogTrigger = DialogPrimitive.Trigger;
-export const DialogClose = DialogPrimitive.Close;
 
 export const DialogContent = forwardRef<
   ElementRef<typeof DialogPrimitive.Content>,
   ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     hideClose?: boolean;
   }
->(({ className, children, hideClose, ...props }, ref) => (
-  <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-bg/60 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-1/2 top-[18vh] z-50 w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 rounded-lg border border-border bg-surface-1 shadow-overlay outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
-        "duration-base data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.98] data-[state=open]:zoom-in-[0.98]",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      {!hideClose && (
-        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm p-1 text-text-dim transition-colors hover:bg-surface-3 hover:text-text">
-          <X className="size-4" />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-      )}
-    </DialogPrimitive.Content>
-  </DialogPrimitive.Portal>
-));
+>(
+  (
+    {
+      className,
+      children,
+      hideClose,
+      onOpenAutoFocus,
+      onCloseAutoFocus,
+      ...props
+    },
+    ref,
+  ) => {
+    const returnTo = useReturnFocus(onOpenAutoFocus, onCloseAutoFocus);
+    return (
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-bg/60 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content
+          ref={ref}
+          className={cn(
+            "fixed left-1/2 top-[18vh] z-50 w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 rounded-lg border border-border bg-surface-1 shadow-overlay outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+            "duration-base data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.98] data-[state=open]:zoom-in-[0.98]",
+            className,
+          )}
+          {...props}
+          {...returnTo}
+        >
+          {children}
+          {!hideClose && (
+            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm p-1 text-text-dim transition-colors hover:bg-surface-3 hover:text-text">
+              <X className="size-4" />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    );
+  },
+);
 DialogContent.displayName = "DialogContent";
 
 export function DialogHeader({

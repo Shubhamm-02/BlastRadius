@@ -21,17 +21,15 @@ import {
 import { Kbd } from "@/components/ui/kbd";
 import { Tip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
-import { copyText, shareUrl } from "@/lib/share";
+import { copyShareLink } from "@/lib/share";
+import { useModKey } from "@/components/palette/ShortcutKeys";
 import { useWorkspace } from "@/state/workspace";
 import { Wordmark } from "./marks";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { ThemeItems, ThemeToggle } from "./ThemeToggle";
-import { useModKey } from "./useModKey";
 import { useProjectSummary } from "./useProjectSummary";
 
 const openPalette = () => useWorkspace.getState().setPaletteOpen(true);
-const copyShareLink = () => copyText(shareUrl(), "Link copied");
-
 function SearchButton({ mod }: { mod: string | null }) {
   return (
     <Tip label="Search functions" keys={[mod ?? "Ctrl", "K"]}>
@@ -122,7 +120,13 @@ function OverflowMenu({
   );
 }
 
-function PanelToggles({ inspectorOpen }: { inspectorOpen: boolean }) {
+function PanelToggles({
+  inspectorOpen,
+  inspectorDocked,
+}: {
+  inspectorOpen: boolean;
+  inspectorDocked: boolean;
+}) {
   const explorerOpen = useWorkspace((s) => s.panels.explorer);
   const togglePanel = useWorkspace((s) => s.togglePanel);
   return (
@@ -153,6 +157,7 @@ function PanelToggles({ inspectorOpen }: { inspectorOpen: boolean }) {
           size="icon"
           aria-label="Inspector"
           aria-pressed={inspectorOpen}
+          aria-controls={inspectorDocked ? "inspector-panel" : undefined}
           onClick={() => togglePanel("inspector")}
           className="aria-pressed:text-text"
         >
@@ -166,9 +171,11 @@ function PanelToggles({ inspectorOpen }: { inspectorOpen: boolean }) {
 export function TopBar({
   hasProject,
   inspectorOpen,
+  inspectorDocked,
 }: {
   hasProject: boolean;
   inspectorOpen: boolean;
+  inspectorDocked: boolean;
 }) {
   const mod = useModKey();
   const summary = useProjectSummary();
@@ -177,6 +184,11 @@ export function TopBar({
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-border px-3">
       <Wordmark />
+      {hasProject && (
+        <h1 className="sr-only">
+          {summary ? `${summary.slug} call graph` : "Call graph"}
+        </h1>
+      )}
       <div className="flex min-w-0 flex-1 items-center">
         <ProjectSwitcher summary={summary} />
       </div>
@@ -218,7 +230,12 @@ export function TopBar({
           </Tip>
           <ThemeToggle />
         </div>
-        {hasProject && <PanelToggles inspectorOpen={inspectorOpen} />}
+        {hasProject && (
+          <PanelToggles
+            inspectorOpen={inspectorOpen}
+            inspectorDocked={inspectorDocked}
+          />
+        )}
         <OverflowMenu mod={mod} hasProject={hasProject} repoUrl={repoUrl} />
       </div>
     </header>

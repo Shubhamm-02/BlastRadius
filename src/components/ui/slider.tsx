@@ -23,11 +23,11 @@ export const Slider = forwardRef<
     {...props}
   >
     <SliderPrimitive.Track className="relative h-1 grow overflow-hidden rounded-full bg-surface-3">
-      <SliderPrimitive.Range className="absolute h-full bg-accent" />
+      <SliderPrimitive.Range className="absolute h-full bg-accent-ink" />
     </SliderPrimitive.Track>
     <SliderPrimitive.Thumb
       aria-label={thumbLabel}
-      className="block size-3.5 rounded-full border border-accent bg-surface-1 shadow-raised transition-transform duration-fast ease-out hover:scale-110 focus-visible:scale-110"
+      className="block size-3.5 rounded-full border border-accent-ink bg-surface-1 shadow-raised transition-transform duration-fast ease-out hover:scale-110 focus-visible:scale-110"
     />
   </SliderPrimitive.Root>
 ));

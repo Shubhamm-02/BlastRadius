@@ -10,7 +10,6 @@ import { cn } from "@/lib/cn";
 
 export const DropdownMenu = Menu.Root;
 export const DropdownMenuTrigger = Menu.Trigger;
-export const DropdownMenuGroup = Menu.Group;
 
 export const DropdownMenuContent = forwardRef<
   ElementRef<typeof Menu.Content>,
